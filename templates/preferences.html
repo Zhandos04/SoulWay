@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Предпочтения - SoulWay{% endblock %}
+
+{% block content %}
+<div class="container preferences-page">
+    <h1>Мои предпочтения</h1>
+    <p class="subtitle">Расскажите о себе, чтобы получать лучшие рекомендации</p>
+
+    <form id="preferencesForm">
+        <div class="form-section">
+            <h2>Интересы</h2>
+            <div class="checkbox-group">
+                <label><input type="checkbox" name="interests" value="кино"> Кино</label>
+                <label><input type="checkbox" name="interests" value="книги"> Книги</label>
+                <label><input type="checkbox" name="interests" value="музыка"> Музыка</label>
+                <label><input type="checkbox" name="interests" value="искусство"> Искусство</label>
+                <label><input type="checkbox" name="interests" value="спорт"> Спорт</label>
+                <label><input type="checkbox" name="interests" value="природа"> Природа</label>
+                <label><input type="checkbox" name="interests" value="еда"> Еда и кулинария</label>
+                <label><input type="checkbox" name="interests" value="технологии"> Технологии</label>
+                <label><input type="checkbox" name="interests" value="путешествия"> Путешествия</label>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Бюджет</h2>
+            <select name="budget" class="form-control">
+                <option value="low">Ограниченный (до 1000₽)</option>
+                <option value="medium" selected>Средний (1000-5000₽)</option>
+                <option value="high">Комфортный (5000₽+)</option>
+            </select>
+        </div>
+
+        <div class="form-section">
+            <h2>Уровень активности</h2>
+            <select name="activity_level" class="form-control">
+                <option value="low">Спокойный (домашний отдых)</option>
+                <option value="moderate" selected>Умеренный (прогулки, мероприятия)</option>
+                <option value="high">Активный (спорт, приключения)</option>
+            </select>
+        </div>
+
+        <div class="form-section">
+            <h2>Социальные предпочтения</h2>
+            <select name="social_preference" class="form-control">
+                <option value="alone">Предпочитаю одиночество</option>
+                <option value="mixed" selected>Смешанно</option>
+                <option value="social">Люблю компанию</option>
+            </select>
+        </div>
+
+        <div class="form-section">
+            <h2>Любимые жанры</h2>
+            <input type="text" name="favorite_genres" class="form-control" 
+                   placeholder="драма, научная фантастика, психология...">
+        </div>
+
+        <div class="form-section">
+            <h2>Что избегать</h2>
+            <input type="text" name="avoid" class="form-control" 
+                   placeholder="ужасы, романтика, толпы...">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Сохранить предпочтения</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('preferencesForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const interests = Array.from(formData.getAll('interests'));
+    const favorite_genres = formData.get('favorite_genres').split(',').map(g => g.trim()).filter(Boolean);
+    const avoid = formData.get('avoid').split(',').map(a => a.trim()).filter(Boolean);
+    
+    const data = {
+        interests,
+        budget: formData.get('budget'),
+        activity_level: formData.get('activity_level'),
+        social_preference: formData.get('social_preference'),
+        favorite_genres,
+        avoid
+    };
+    
+    const response = await fetch('/preferences/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+        alert('Предпочтения сохранены!');
+    }
+});
+</script>
+{% endblock %}

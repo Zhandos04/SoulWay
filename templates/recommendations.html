@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Рекомендации - SoulWay{% endblock %}
+
+{% block content %}
+<div class="container recommendations-page">
+    <h1>Персональные рекомендации</h1>
+    <p class="subtitle">Что вам подойдет прямо сейчас</p>
+
+    <div class="recommendation-settings">
+        <h2>Настройки подбора</h2>
+        <form id="recommendationForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Тип активности</label>
+                    <select name="type" class="form-control">
+                        <option value="any">Любой</option>
+                        <option value="home">Дома</option>
+                        <option value="city">В городе</option>
+                        <option value="travel">Путешествие</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Бюджет на сегодня</label>
+                    <select name="budget" class="form-control">
+                        <option value="free">Бесплатно</option>
+                        <option value="low">До 1000₽</option>
+                        <option value="medium">1000-5000₽</option>
+                        <option value="high">5000₽+</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Дополнительный контекст</label>
+                <textarea name="context" rows="3" placeholder="Например: устал от работы, хочу вдохновения, планирую выходные..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-large">
+                ✨ Получить рекомендации
+            </button>
+        </form>
+    </div>
+
+    <div id="recommendationsResult" class="recommendations-result" style="display: none;">
+        <h2>Ваши рекомендации</h2>
+        <div id="insight" class="insight-card"></div>
+        <div id="recommendationsList" class="recommendations-list"></div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Анализируем ваше состояние и подбираем активности...</p>
+    </div>
+</div>
+
+<script>
+document.getElementById('recommendationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        type: formData.get('type'),
+        budget: formData.get('budget'),
+        context: formData.get('context')
+    };
+    
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('recommendationsResult').style.display = 'none';
+    
+    const response = await fetch('/recommendations/get', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    document.getElementById('loading').style.display = 'none';
+    
+    if (result.success) {
+        displayRecommendations(result.recommendations);
+    }
+});
+
+function displayRecommendations(data) {
+    try {
+        const parsed = JSON.parse(data);
+        const resultDiv = document.getElementById('recommendationsResult');
+        const insightDiv = document.getElementById('insight');
+        const listDiv = document.getElementById('recommendationsList');
+        
+        insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${parsed.overall_insight}</p>`;
+        
+        listDiv.innerHTML = parsed.recommendations.map((rec, index) => `
+            <div class="recommendation-card">
+                <div class="rec-number">${index + 1}</div>
+                <h3>${rec.title}</h3>
+                <span class="rec-type">${rec.type}</span>
+                <p class="rec-why"><strong>Почему сейчас:</strong> ${rec.why_now}</p>
+                <p class="rec-benefit"><strong>Польза:</strong> ${rec.benefit}</p>
+                <div class="rec-meta">
+                    <span>💰 ${rec.budget}</span>
+                    <span>⏱️ ${rec.duration}</span>
+                </div>
+                <p class="rec-details">${rec.details}</p>
+            </div>
+        `).join('');
+        
+        resultDiv.style.display = 'block';
+    } catch (e) {
+        document.getElementById('recommendationsList').innerHTML = `<pre>${data}</pre>`;
+        document.getElementById('recommendationsResult').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

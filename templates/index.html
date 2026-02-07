@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <div class="container">
+        <h1>Добро пожаловать в SoulWay</h1>
+        <p class="subtitle">Персональный ассистент для осмысленного досуга и самопознания</p>
+        
+        <div class="hero-cards">
+            <div class="card">
+                <div class="card-icon">📔</div>
+                <h3>Дневник эмоций</h3>
+                <p>Записывайте мысли и отслеживайте эмоциональное состояние</p>
+                <a href="/journal" class="btn">Начать писать</a>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">🎯</div>
+                <h3>Персональные рекомендации</h3>
+                <p>Получайте подборки досуга на основе ИИ-анализа</p>
+                <a href="/recommendations" class="btn">Получить рекомендации</a>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">✈️</div>
+                <h3>Путешествия души</h3>
+                <p>Направления для роста и эмоционального баланса</p>
+                <a href="/recommendations?type=travel" class="btn">Подобрать поездку</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="features">
+    <div class="container">
+        <h2>Как это работает</h2>
+        <div class="features-grid">
+            <div class="feature">
+                <span class="feature-number">1</span>
+                <h3>Анализ состояния</h3>
+                <p>ИИ анализирует ваши записи, настроение и предпочтения</p>
+            </div>
+            <div class="feature">
+                <span class="feature-number">2</span>
+                <h3>Умный подбор</h3>
+                <p>Система находит активности, подходящие именно сейчас</p>
+            </div>
+            <div class="feature">
+                <span class="feature-number">3</span>
+                <h3>Рост и баланс</h3>
+                <p>Каждая рекомендация - шаг к самопознанию</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

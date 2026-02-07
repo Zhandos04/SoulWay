@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Профиль - SoulWay{% endblock %}
+
+{% block content %}
+<div class="container profile-page">
+    <h1>Мой профиль и аналитика</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Записей в дневнике</h3>
+            <p class="stat-value">{{ user_data.journal_entries|length }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Рекомендаций получено</h3>
+            <p class="stat-value">{{ user_data.history|length }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Среднее настроение</h3>
+            <p class="stat-value" id="avgMood">-</p>
+        </div>
+    </div>
+
+    <div class="analytics-section">
+        <h2>Эмоциональная динамика</h2>
+        <p class="subtitle">Проанализируйте свои эмоциональные паттерны</p>
+        
+        {% if user_data.journal_entries|length > 0 %}
+            <button id="analyzeBtn" class="btn btn-primary">📊 Проанализировать</button>
+            <div id="analysisResult" class="analysis-result" style="display: none;"></div>
+        {% else %}
+            <div class="empty-state">
+                <p>Недостаточно данных для анализа.</p>
+                <p>Начните вести <a href="/journal">дневник</a>, чтобы получить персональную аналитику!</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="history-section" style="margin-top: 3rem;">
+        <h2>История рекомендаций</h2>
+        {% if user_data.history|length > 0 %}
+            <div class="history-list">
+                {% for item in user_data.history[-5:]|reverse %}
+                <div class="history-item">
+                    <div class="history-date">{{ item.timestamp }}</div>
+                    <div class="history-context">
+                        Запрос: {{ item.request.get('context', 'общие рекомендации') }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-state">История пуста. Получите свои первые <a href="/recommendations">рекомендации</a>!</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.empty-state {
+    background: var(--surface-light);
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.empty-state a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.empty-state a:hover {
+    text-decoration: underline;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.history-item {
+    background: var(--surface);
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+}
+
+.history-date {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.history-context {
+    color: var(--text);
+}
+</style>
+
+<script>
+// Расчет среднего настроения
+const entries = {{ user_data.journal_entries|tojson|safe }};
+if (entries && entries.length > 0) {
+    const avgMood = entries.reduce((sum, e) => sum + (e.mood || 0), 0) / entries.length;
+    document.getElementById('avgMood').textContent = avgMood.toFixed(1) + '/10';
+} else {
+    document.getElementById('avgMood').textContent = 'Нет данных';
+}
+
+// Анализ эмоциональной динамики
+const analyzeBtn = document.getElementById('analyzeBtn');
+if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', async function() {
+        this.disabled = true;
+        this.textContent = '⏳ Анализирую...';
+        
+        const resultDiv = document.getElementById('analysisResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Анализ эмоциональной динамики...</p></div>';
+        
+        try {
+            const response = await fetch('/analyze/emotional-dynamics');
+            const result = await response.json();
+            
+            if (result.error) {
+                resultDiv.innerHTML = `<div class="error-message">${result.error}</div>`;
+            } else if (result.analysis) {
+                // Форматируем результат
+                let html = '<div class="analysis-content">';
+                
+                if (result.analysis.raw) {
+                    html += `<div class="analysis-raw">${result.analysis.raw}</div>`;
+                } else {
+                    html += `
+                        <div class="analysis-item">
+                            <h3>📈 Тренд настроения</h3>
+                            <p>${result.analysis.trend || 'Не определен'}</p>
+                        </div>
+                        
+                        <div class="analysis-item">
+                            <h3>📊 Среднее настроение</h3>
+                            <p class="stat-large">${result.analysis.average_mood || 'N/A'}/10</p>
+                        </div>
+                        
+                        ${result.analysis.positive_triggers ? `
+                        <div class="analysis-item">
+                            <h3>✨ Позитивные триггеры</h3>
+                            <ul>
+                                ${result.analysis.positive_triggers.map(t => `<li>${t}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        
+                        ${result.analysis.negative_triggers ? `
+                        <div class="analysis-item">
+                            <h3>⚠️ Негативные триггеры</h3>
+                            <ul>
+                                ${result.analysis.negative_triggers.map(t => `<li>${t}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        
+                        ${result.analysis.recommendations ? `
+                        <div class="analysis-item">
+                            <h3>💡 Рекомендации</h3>
+                            <ul>
+                                ${result.analysis.recommendations.map(r => `<li>${r}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        
+                        ${result.analysis.summary ? `
+                        <div class="analysis-item summary">
+                            <h3>📝 Общий вывод</h3>
+                            <p>${result.analysis.summary}</p>
+                        </div>
+                        ` : ''}
+                    `;
+                }
+                
+                html += '</div>';
+                resultDiv.innerHTML = html;
+            }
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="error-message">Ошибка: ${error.message}</div>`;
+        }
+        
+        this.disabled = false;
+        this.textContent = '🔄 Обновить анализ';
+    });
+}
+</script>
+
+<style>
+.analysis-content {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.analysis-item {
+    background: var(--surface-light);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.analysis-item h3 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+}
+
+.analysis-item ul {
+    list-style: none;
+    padding: 0;
+}
+
+.analysis-item li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.analysis-item li:last-child {
+    border-bottom: none;
+}
+
+.stat-large {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.summary {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px solid var(--primary);
+}
+
+.error-message {
+    background: var(--danger);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.analysis-raw {
+    white-space: pre-wrap;
+    background: var(--surface-light);
+    padding: 1rem;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

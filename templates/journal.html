@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Дневник - SoulWay{% endblock %}
+
+{% block content %}
+<div class="container journal-page">
+    <h1>Мой дневник</h1>
+    <p class="subtitle">Записывайте мысли и отслеживайте эмоциональное состояние</p>
+
+    <div class="journal-form">
+        <h2>Новая запись</h2>
+        <form id="journalForm">
+            <div class="form-group">
+                <label>Как я себя чувствую сегодня?</label>
+                <div class="mood-slider">
+                    <input type="range" id="moodSlider" min="1" max="10" value="5">
+                    <div class="mood-labels">
+                        <span>😔</span>
+                        <span id="moodValue">5</span>
+                        <span>😊</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="entryText">Что на душе?</label>
+                <textarea id="entryText" rows="6" placeholder="Опишите ваши мысли, чувства, события дня..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="tags">Теги (через запятую)</label>
+                <input type="text" id="tags" placeholder="работа, семья, творчество">
+            </div>
+
+            <button type="submit" class="btn btn-primary">Сохранить запись</button>
+        </form>
+    </div>
+
+    <div class="journal-entries">
+        <h2>Мои записи</h2>
+        <div id="entriesList">
+            {% if entries %}
+                {% for entry in entries|reverse %}
+                <div class="entry-card">
+                    <div class="entry-header">
+                        <span class="entry-date">{{ entry.date }}</span>
+                        <span class="entry-mood">Настроение: {{ entry.mood }}/10</span>
+                    </div>
+                    <p class="entry-text">{{ entry.text }}</p>
+                    {% if entry.tags %}
+                    <div class="entry-tags">
+                        {% for tag in entry.tags %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty-state">Пока нет записей. Начните вести дневник!</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const moodSlider = document.getElementById('moodSlider');
+const moodValue = document.getElementById('moodValue');
+
+moodSlider.addEventListener('input', function() {
+    moodValue.textContent = this.value;
+});
+
+document.getElementById('journalForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('entryText').value;
+    const mood = parseInt(document.getElementById('moodSlider').value);
+    const tagsInput = document.getElementById('tags').value;
+    const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
+    
+    const response = await fetch('/journal/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text, mood, tags })
+    });
+    
+    if (response.ok) {
+        alert('Запись сохранена!');
+        location.reload();
+    }
+});
+</script>
+{% endblock %}
