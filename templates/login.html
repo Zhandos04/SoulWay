@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Вход - SoulWay{% endblock %}
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-logo">🌟</div>
+        <h1>Добро пожаловать</h1>
+        <p class="subtitle">Войдите в свой аккаунт</p>
+        
+        <div id="errorMsg" class="auth-error" style="display:none;"></div>
+        
+        <div class="form-group">
+            <label>Имя пользователя</label>
+            <input type="text" id="username" class="form-control" placeholder="Введите логин">
+        </div>
+        <div class="form-group">
+            <label>Пароль</label>
+            <input type="password" id="password" class="form-control" placeholder="Введите пароль">
+        </div>
+        
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Войти</button>
+        <p class="auth-switch">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+    </div>
+</div>
+
+<script>
+async function doLogin() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+        window.location.href = '/';
+    } else {
+        const err = document.getElementById('errorMsg');
+        err.textContent = data.error;
+        err.style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

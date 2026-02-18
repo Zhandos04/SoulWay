@@ -401,3 +401,94 @@ textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* Страницы авторизации */
+.auth-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+    padding: 2rem;
+}
+
+.auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3rem;
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.15);
+}
+
+.auth-logo {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.auth-card h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.auth-card .subtitle {
+    margin-bottom: 2rem;
+}
+
+.auth-card .form-group {
+    text-align: left;
+}
+
+.auth-error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid var(--danger);
+    color: #fca5a5;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.btn-full {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.auth-switch {
+    margin-top: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auth-switch a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+/* Обновлённая навигация */
+.nav-username {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.nav-logout {
+    color: var(--danger) !important;
+}
+
+.nav-login-btn {
+    background: var(--primary);
+    color: white !important;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+}
+
+/* Обновлённые карточки — добавить свечение */
+.card {
+    background: linear-gradient(145deg, var(--surface), #1a2540);
+}
+
+/* Hero секция — более яркий градиент */
+.hero {
+    background: radial-gradient(ellipse at top, rgba(99,102,241,0.1) 0%, transparent 70%);
+}

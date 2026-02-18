@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from google import genai
 import os
 from datetime import datetime
@@ -13,13 +15,19 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Хранилище данных (в продакшене использовать БД)
 users_data = {}
+registered_users = {}  # {username: {password_hash, user_id}}
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'username' not in session:
+            return jsonify({'error': 'unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 
 def get_user_id():
-    """Получить ID пользователя из сессии"""
-    if 'user_id' not in session:
-        session['user_id'] = f"user_{datetime.now().timestamp()}"
-    return session['user_id']
+    return session.get('user_id', 'anonymous')
 
 
 def get_user_data():
@@ -46,6 +54,54 @@ def analyze_with_gemini(prompt):
     except Exception as e:
         return f"Ошибка API: {str(e)}"
 
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/register')
+def register_page():
+    return render_template('register.html')
+
+@app.route('/auth/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'Заполните все поля'})
+    if username in registered_users:
+        return jsonify({'error': 'Пользователь уже существует'})
+    if len(password) < 6:
+        return jsonify({'error': 'Пароль минимум 6 символов'})
+    
+    user_id = f"user_{username}"
+    registered_users[username] = {
+        'password_hash': generate_password_hash(password),
+        'user_id': user_id
+    }
+    session['username'] = username
+    session['user_id'] = user_id
+    return jsonify({'success': True})
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    user = registered_users.get(username)
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'error': 'Неверный логин или пароль'})
+    
+    session['username'] = username
+    session['user_id'] = user['user_id']
+    return jsonify({'success': True})
+
+@app.route('/auth/logout')
+def logout():
+    session.clear()
+    return redirect('/')
 
 @app.route('/')
 def index():

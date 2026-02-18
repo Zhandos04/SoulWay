@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SoulWay - Осмысленный досуг{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container">
@@ -16,6 +18,12 @@
                 <li><a href="/preferences">Предпочтения</a></li>
                 <li><a href="/recommendations">Рекомендации</a></li>
                 <li><a href="/profile">Профиль</a></li>
+                {% if session.get('username') %}
+                <li><span class="nav-username">👤 {{ session.username }}</span></li>
+                <li><a href="/auth/logout" class="nav-logout">Выйти</a></li>
+                {% else %}
+                <li><a href="/login" class="nav-login-btn">Войти</a></li>
+                {% endif %}
             </ul>
         </div>
     </nav>
@@ -33,4 +41,5 @@
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
+
 </html>
