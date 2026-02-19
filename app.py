@@ -5,9 +5,35 @@ from google import genai
 import os
 from datetime import datetime
 import json
+from flasgger import Swagger
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-to-random-string'
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/swagger/"
+}
+
+swagger_template = {
+    "info": {
+        "title": "SoulWay API",
+        "description": "API для приложения осмысленного досуга",
+        "version": "1.0.0"
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 # Инициализация Gemini API
 GEMINI_API_KEY = 'AIzaSyBq1H9EawUD5ZH-cvOn7OnrQCzGx90qpMo'
@@ -64,6 +90,42 @@ def register_page():
 
 @app.route('/auth/register', methods=['POST'])
 def register():
+    """
+    Регистрация пользователя
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: john_doe
+            password:
+              type: string
+              example: secret123
+    responses:
+      200:
+        description: Успешная регистрация
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+      400:
+        description: Ошибка регистрации
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
     data = request.json
     username = data.get('username', '').strip()
     password = data.get('password', '')
@@ -86,6 +148,32 @@ def register():
 
 @app.route('/auth/login', methods=['POST'])
 def login():
+    """
+    Вход в аккаунт
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: john_doe
+            password:
+              type: string
+              example: secret123
+    responses:
+      200:
+        description: Успешный вход
+      401:
+        description: Неверный логин или пароль
+    """
     data = request.json
     username = data.get('username', '')
     password = data.get('password', '')
@@ -118,6 +206,32 @@ def journal():
 
 @app.route('/journal/add', methods=['POST'])
 def add_journal_entry():
+    """
+    Добавить запись в дневник
+    ---
+    tags:
+      - Journal
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            text:
+              type: string
+              example: Сегодня был хороший день
+            mood:
+              type: integer
+              example: 7
+            tags:
+              type: array
+              items:
+                type: string
+              example: ["работа", "семья"]
+    responses:
+      200:
+        description: Запись добавлена
+    """
     """Добавить запись в дневник"""
     data = request.json
     user_data = get_user_data()
@@ -169,6 +283,35 @@ def preferences():
 
 @app.route('/preferences/save', methods=['POST'])
 def save_preferences():
+    """
+    Сохранить предпочтения пользователя
+    ---
+    tags:
+      - Preferences
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            interests:
+              type: array
+              items:
+                type: string
+              example: ["кино", "книги"]
+            budget:
+              type: string
+              example: medium
+            activity_level:
+              type: string
+              example: moderate
+            social_preference:
+              type: string
+              example: mixed
+    responses:
+      200:
+        description: Предпочтения сохранены
+    """
     """Сохранить предпочтения"""
     data = request.json
     user_data = get_user_data()
@@ -193,6 +336,30 @@ def recommendations():
 
 @app.route('/recommendations/get', methods=['POST'])
 def get_recommendations():
+    """
+    Получить персональные рекомендации
+    ---
+    tags:
+      - Recommendations
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            context:
+              type: string
+              example: устал от работы, хочу отдохнуть
+            type:
+              type: string
+              example: home
+            budget:
+              type: string
+              example: medium
+    responses:
+      200:
+        description: Список рекомендаций от AI
+    """
     """Получить персональные рекомендации"""
     data = request.json
     user_data = get_user_data()
@@ -282,6 +449,17 @@ def profile():
 
 @app.route('/analyze/emotional-dynamics')
 def analyze_emotional_dynamics():
+    """
+    Анализ эмоциональной динамики
+    ---
+    tags:
+      - Analytics
+    responses:
+      200:
+        description: Результат анализа эмоций
+      400:
+        description: Недостаточно данных
+    """
     """Анализ эмоциональной динамики"""
     user_data = get_user_data()
     entries = user_data['journal_entries']
@@ -326,6 +504,30 @@ def analyze_emotional_dynamics():
 
 @app.route('/travel/suggest', methods=['POST'])
 def suggest_travel():
+    """
+    Подобрать направление для путешествия
+    ---
+    tags:
+      - Travel
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            mood:
+              type: string
+              example: спокойное
+            budget:
+              type: string
+              example: средний
+            duration:
+              type: string
+              example: 3-5 дней
+    responses:
+      200:
+        description: Список направлений
+    """
     """Предложить направления для путешествий"""
     data = request.json
     user_data = get_user_data()
