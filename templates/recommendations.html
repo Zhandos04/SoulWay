@@ -34,7 +34,8 @@
 
             <div class="form-group">
                 <label>Дополнительный контекст</label>
-                <textarea name="context" rows="3" placeholder="Например: устал от работы, хочу вдохновения, планирую выходные..."></textarea>
+                <textarea name="context" rows="3"
+                    placeholder="Например: устал от работы, хочу вдохновения, планирую выходные..."></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary btn-large">
@@ -43,77 +44,274 @@
         </form>
     </div>
 
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Анализируем ваше состояние и подбираем активности...</p>
+    </div>
+
     <div id="recommendationsResult" class="recommendations-result" style="display: none;">
         <h2>Ваши рекомендации</h2>
         <div id="insight" class="insight-card"></div>
         <div id="recommendationsList" class="recommendations-list"></div>
     </div>
 
-    <div id="loading" class="loading" style="display: none;">
-        <div class="spinner"></div>
-        <p>Анализируем ваше состояние и подбираем активности...</p>
+    <div id="errorResult" class="error-block" style="display: none;">
+        <p id="errorText"></p>
     </div>
 </div>
 
+<style>
+.error-block {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid var(--danger);
+    color: #fca5a5;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.rec-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+}
+
+.rec-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.rec-number-badge {
+    min-width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.rec-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+}
+
+.rec-type-badge {
+    display: inline-block;
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    padding: 0.2rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.rec-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.rec-info-block {
+    background: var(--surface-light);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+}
+
+.rec-info-block .label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.rec-info-block .value {
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
+.rec-details {
+    background: var(--surface-light);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.rec-meta-row {
+    display: flex;
+    gap: 1.5rem;
+    margin: 0.75rem 0;
+    flex-wrap: wrap;
+}
+
+.rec-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.insight-card {
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+    border: 1px solid rgba(99,102,241,0.3);
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.insight-card strong {
+    color: #a5b4fc;
+}
+
+@media (max-width: 600px) {
+    .rec-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
 <script>
-document.getElementById('recommendationForm').addEventListener('submit', async function(e) {
+document.getElementById('recommendationForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    
+
     const formData = new FormData(this);
     const data = {
         type: formData.get('type'),
         budget: formData.get('budget'),
         context: formData.get('context')
     };
-    
+
     document.getElementById('loading').style.display = 'block';
     document.getElementById('recommendationsResult').style.display = 'none';
-    
-    const response = await fetch('/recommendations/get', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    });
-    
-    const result = await response.json();
-    document.getElementById('loading').style.display = 'none';
-    
-    if (result.success) {
-        displayRecommendations(result.recommendations);
+    document.getElementById('errorResult').style.display = 'none';
+
+    try {
+        const response = await fetch('/recommendations/get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        document.getElementById('loading').style.display = 'none';
+
+        if (result.success) {
+            displayRecommendations(result.recommendations);
+        } else {
+            showError(result.error || 'Неизвестная ошибка');
+        }
+    } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        showError('Ошибка соединения: ' + err.message);
     }
 });
 
-function displayRecommendations(data) {
-    try {
-        const parsed = JSON.parse(data);
-        const resultDiv = document.getElementById('recommendationsResult');
-        const insightDiv = document.getElementById('insight');
-        const listDiv = document.getElementById('recommendationsList');
-        
-        insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${parsed.overall_insight}</p>`;
-        
+function showError(msg) {
+    const el = document.getElementById('errorResult');
+    document.getElementById('errorText').textContent = msg;
+    el.style.display = 'block';
+}
+
+function displayRecommendations(rawData) {
+    let parsed;
+
+    // rawData может быть строкой JSON или уже объектом
+    if (typeof rawData === 'string') {
+        try {
+            // Убираем возможную markdown-обёртку на случай если сервер не почистил
+            const cleaned = rawData.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+            parsed = JSON.parse(cleaned);
+        } catch (e) {
+            // Если всё равно не парсится — показываем как текст
+            document.getElementById('recommendationsList').innerHTML =
+                `<div class="rec-details" style="white-space: pre-wrap;">${rawData}</div>`;
+            document.getElementById('insight').innerHTML = '';
+            document.getElementById('recommendationsResult').style.display = 'block';
+            return;
+        }
+    } else {
+        parsed = rawData;
+    }
+
+    const insightDiv = document.getElementById('insight');
+    const listDiv = document.getElementById('recommendationsList');
+
+    // Инсайт
+    if (parsed.overall_insight) {
+        insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${escapeHtml(parsed.overall_insight)}</p>`;
+    } else {
+        insightDiv.innerHTML = '';
+    }
+
+    // Карточки рекомендаций
+    if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
         listDiv.innerHTML = parsed.recommendations.map((rec, index) => `
-            <div class="recommendation-card">
-                <div class="rec-number">${index + 1}</div>
-                <h3>${rec.title}</h3>
-                <span class="rec-type">${rec.type}</span>
-                <p class="rec-why"><strong>Почему сейчас:</strong> ${rec.why_now}</p>
-                <p class="rec-benefit"><strong>Польза:</strong> ${rec.benefit}</p>
-                <div class="rec-meta">
-                    <span>💰 ${rec.budget}</span>
-                    <span>⏱️ ${rec.duration}</span>
+            <div class="rec-card">
+                <div class="rec-card-header">
+                    <div class="rec-number-badge">${index + 1}</div>
+                    <h3 class="rec-title">${escapeHtml(rec.title || '')}</h3>
                 </div>
-                <p class="rec-details">${rec.details}</p>
+
+                ${rec.type ? `<span class="rec-type-badge">🏷 ${escapeHtml(rec.type)}</span>` : ''}
+
+                <div class="rec-row">
+                    <div class="rec-info-block">
+                        <div class="label">⚡ Почему сейчас</div>
+                        <div class="value">${escapeHtml(rec.why_now || '—')}</div>
+                    </div>
+                    <div class="rec-info-block">
+                        <div class="label">🌱 Польза</div>
+                        <div class="value">${escapeHtml(rec.benefit || '—')}</div>
+                    </div>
+                </div>
+
+                <div class="rec-meta-row">
+                    ${rec.budget ? `<span class="rec-meta-item">💰 ${escapeHtml(rec.budget)}</span>` : ''}
+                    ${rec.duration ? `<span class="rec-meta-item">⏱️ ${escapeHtml(rec.duration)}</span>` : ''}
+                </div>
+
+                ${rec.details ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>` : ''}
             </div>
         `).join('');
-        
-        resultDiv.style.display = 'block';
-    } catch (e) {
-        document.getElementById('recommendationsList').innerHTML = `<pre>${data}</pre>`;
-        document.getElementById('recommendationsResult').style.display = 'block';
+    } else {
+        listDiv.innerHTML = `<div class="rec-details" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
     }
+
+    document.getElementById('recommendationsResult').style.display = 'block';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 </script>
 {% endblock %}

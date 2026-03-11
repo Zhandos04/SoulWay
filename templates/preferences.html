@@ -27,7 +27,7 @@
             <h2>Бюджет</h2>
             <select name="budget" class="form-control">
                 <option value="low">Ограниченный (до 1000₽)</option>
-                <option value="medium" selected>Средний (1000-5000₽)</option>
+                <option value="medium">Средний (1000-5000₽)</option>
                 <option value="high">Комфортный (5000₽+)</option>
             </select>
         </div>
@@ -36,7 +36,7 @@
             <h2>Уровень активности</h2>
             <select name="activity_level" class="form-control">
                 <option value="low">Спокойный (домашний отдых)</option>
-                <option value="moderate" selected>Умеренный (прогулки, мероприятия)</option>
+                <option value="moderate">Умеренный (прогулки, мероприятия)</option>
                 <option value="high">Активный (спорт, приключения)</option>
             </select>
         </div>
@@ -45,7 +45,7 @@
             <h2>Социальные предпочтения</h2>
             <select name="social_preference" class="form-control">
                 <option value="alone">Предпочитаю одиночество</option>
-                <option value="mixed" selected>Смешанно</option>
+                <option value="mixed">Смешанно</option>
                 <option value="social">Люблю компанию</option>
             </select>
         </div>
@@ -67,6 +67,38 @@
 </div>
 
 <script>
+// Загружаем сохранённые предпочтения из сервера
+const saved = {{ preferences | tojson | safe }};
+
+if (saved && Object.keys(saved).length > 0) {
+    // Чекбоксы интересов
+    document.querySelectorAll('input[name="interests"]').forEach(function(cb) {
+        if (saved.interests && saved.interests.includes(cb.value)) {
+            cb.checked = true;
+        }
+    });
+
+    // Селекты
+    if (saved.budget) {
+        document.querySelector('select[name="budget"]').value = saved.budget;
+    }
+    if (saved.activity_level) {
+        document.querySelector('select[name="activity_level"]').value = saved.activity_level;
+    }
+    if (saved.social_preference) {
+        document.querySelector('select[name="social_preference"]').value = saved.social_preference;
+    }
+
+    // Текстовые поля
+    if (saved.favorite_genres && saved.favorite_genres.length > 0) {
+        document.querySelector('input[name="favorite_genres"]').value = saved.favorite_genres.join(', ');
+    }
+    if (saved.avoid && saved.avoid.length > 0) {
+        document.querySelector('input[name="avoid"]').value = saved.avoid.join(', ');
+    }
+}
+
+// Сохранение формы
 document.getElementById('preferencesForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     

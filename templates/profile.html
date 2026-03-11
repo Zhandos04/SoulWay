@@ -40,13 +40,15 @@
         <h2>История рекомендаций</h2>
         {% if user_data.history|length > 0 %}
             <div class="history-list">
-                {% for item in user_data.history[-5:]|reverse %}
+                {% for item in user_data.history|reverse %}
+                {% if loop.index <= 5 %}
                 <div class="history-item">
                     <div class="history-date">{{ item.timestamp }}</div>
                     <div class="history-context">
-                        Запрос: {{ item.request.get('context', 'общие рекомендации') }}
+                        Запрос: {{ item.request.context if item.request.context else 'общие рекомендации' }}
                     </div>
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
         {% else %}
