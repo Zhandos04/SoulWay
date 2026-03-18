@@ -3,6 +3,8 @@
 {% block title %}Рекомендации - SoulWay{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <div class="container recommendations-page">
     <h1>Персональные рекомендации</h1>
     <p class="subtitle">Что вам подойдет прямо сейчас</p>
@@ -13,7 +15,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Тип активности</label>
-                    <select name="type" class="form-control">
+                    <select name="type" class="form-control" id="activityType" onchange="updateBudgetOptions()">
                         <option value="any">Любой</option>
                         <option value="home">Дома</option>
                         <option value="city">В городе</option>
@@ -23,11 +25,11 @@
 
                 <div class="form-group">
                     <label>Бюджет на сегодня</label>
-                    <select name="budget" class="form-control">
+                    <select name="budget" class="form-control" id="budgetSelect">
                         <option value="free">Бесплатно</option>
-                        <option value="low">До 1000₽</option>
-                        <option value="medium">1000-5000₽</option>
-                        <option value="high">5000₽+</option>
+                        <option value="low">До 5 000 ₸</option>
+                        <option value="medium">5 000 – 20 000 ₸</option>
+                        <option value="high">20 000 ₸ и выше</option>
                     </select>
                 </div>
             </div>
@@ -38,7 +40,7 @@
                     placeholder="Например: устал от работы, хочу вдохновения, планирую выходные..."></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-large">
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-large">
                 ✨ Получить рекомендации
             </button>
         </form>
@@ -69,6 +71,153 @@
     border-radius: 12px;
     margin-top: 2rem;
     text-align: center;
+}
+
+/* Карта маршрута */
+.map-section {
+    margin-top: 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.map-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface-light);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.map-container {
+    height: 280px;
+    width: 100%;
+}
+
+.map-stops {
+    padding: 0.75rem 1rem;
+    background: var(--surface-light);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.map-stop-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.stop-dot {
+    min-width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: bold;
+    color: white;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Кино-блок */
+.cinema-block {
+    margin-top: 1rem;
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08));
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+}
+
+.cinema-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cinema-icon {
+    font-size: 1.5rem;
+}
+
+.cinema-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.cinema-year {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.cinema-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.cinema-badge {
+    background: var(--surface-light);
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.cinema-rating {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.cinema-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.cinema-links {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cinema-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+    font-weight: 500;
+}
+
+.cinema-link:hover { opacity: 0.8; }
+
+.link-kinopoisk {
+    background: rgba(255, 102, 0, 0.2);
+    color: #fb923c;
+    border: 1px solid rgba(255, 102, 0, 0.3);
+}
+
+.link-shodim {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .rec-card {
@@ -196,8 +345,51 @@
 </style>
 
 <script>
+// Бюджеты по типу активности
+const budgetOptions = {
+    any: [
+        { value: 'free', label: 'Бесплатно' },
+        { value: 'low', label: 'До 5 000 ₸' },
+        { value: 'medium', label: '5 000 – 20 000 ₸' },
+        { value: 'high', label: '20 000 ₸ и выше' },
+    ],
+    home: [
+        { value: 'free', label: 'Бесплатно' },
+        { value: 'low', label: 'До 3 000 ₸ (подписки, доставка)' },
+        { value: 'medium', label: '3 000 – 10 000 ₸' },
+        { value: 'high', label: '10 000 ₸ и выше' },
+    ],
+    city: [
+        { value: 'free', label: 'Бесплатно (парки, прогулки)' },
+        { value: 'low', label: 'До 5 000 ₸ (кафе, кино)' },
+        { value: 'medium', label: '5 000 – 25 000 ₸ (рестораны, мероприятия)' },
+        { value: 'high', label: '25 000 ₸ и выше (премиум досуг)' },
+    ],
+    travel: [
+        { value: 'low', label: 'До 50 000 ₸ (поездка в область)' },
+        { value: 'medium', label: '50 000 – 200 000 ₸ (СНГ, туры)' },
+        { value: 'high', label: '200 000 ₸ и выше (заграница)' },
+    ],
+};
+
+function updateBudgetOptions() {
+    const type = document.getElementById('activityType').value;
+    const select = document.getElementById('budgetSelect');
+    const current = select.value;
+    const options = budgetOptions[type] || budgetOptions.any;
+
+    select.innerHTML = options.map(o =>
+        `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+}
+
 document.getElementById('recommendationForm').addEventListener('submit', async function (e) {
     e.preventDefault();
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Анализируем...';
+    btn.style.opacity = '0.7';
 
     const formData = new FormData(this);
     const data = {
@@ -228,6 +420,10 @@ document.getElementById('recommendationForm').addEventListener('submit', async f
     } catch (err) {
         document.getElementById('loading').style.display = 'none';
         showError('Ошибка соединения: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ Получить рекомендации';
+        btn.style.opacity = '1';
     }
 });
 
@@ -237,17 +433,17 @@ function showError(msg) {
     el.style.display = 'block';
 }
 
+// Храним инстансы карт чтобы не инициализировать повторно
+const mapInstances = {};
+
 function displayRecommendations(rawData) {
     let parsed;
 
-    // rawData может быть строкой JSON или уже объектом
     if (typeof rawData === 'string') {
         try {
-            // Убираем возможную markdown-обёртку на случай если сервер не почистил
             const cleaned = rawData.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
             parsed = JSON.parse(cleaned);
         } catch (e) {
-            // Если всё равно не парсится — показываем как текст
             document.getElementById('recommendationsList').innerHTML =
                 `<div class="rec-details" style="white-space: pre-wrap;">${rawData}</div>`;
             document.getElementById('insight').innerHTML = '';
@@ -261,14 +457,12 @@ function displayRecommendations(rawData) {
     const insightDiv = document.getElementById('insight');
     const listDiv = document.getElementById('recommendationsList');
 
-    // Инсайт
     if (parsed.overall_insight) {
         insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${escapeHtml(parsed.overall_insight)}</p>`;
     } else {
         insightDiv.innerHTML = '';
     }
 
-    // Карточки рекомендаций
     if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
         listDiv.innerHTML = parsed.recommendations.map((rec, index) => `
             <div class="rec-card">
@@ -296,13 +490,144 @@ function displayRecommendations(rawData) {
                 </div>
 
                 ${rec.details ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>` : ''}
+
+                ${renderCinemaBlock(rec.cinema_info)}
+                ${renderMapBlock(rec.map_points, index)}
             </div>
         `).join('');
+
+        // Инициализируем карты после рендера DOM
+        setTimeout(() => {
+            parsed.recommendations.forEach((rec, index) => {
+                if (rec.map_points && rec.map_points.length > 0) {
+                    initMap(rec.map_points, index);
+                }
+            });
+        }, 100);
     } else {
         listDiv.innerHTML = `<div class="rec-details" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
     }
 
     document.getElementById('recommendationsResult').style.display = 'block';
+}
+
+function renderCinemaBlock(info) {
+    if (!info || typeof info !== 'object') return '';
+    return `
+        <div class="cinema-block">
+            <div class="cinema-title-row">
+                <span class="cinema-icon">🎬</span>
+                <span class="cinema-name">${escapeHtml(info.title_ru || info.title_en || '')}</span>
+                ${info.year ? `<span class="cinema-year">(${info.year})</span>` : ''}
+            </div>
+            <div class="cinema-meta">
+                ${info.genre ? `<span class="cinema-badge">🎭 ${escapeHtml(info.genre)}</span>` : ''}
+                ${info.rating_imdb ? `<span class="cinema-badge cinema-rating">⭐ IMDb ${escapeHtml(String(info.rating_imdb))}</span>` : ''}
+                ${info.duration_min ? `<span class="cinema-badge">⏱️ ${info.duration_min} мин</span>` : ''}
+            </div>
+            ${info.description ? `<p class="cinema-desc">${escapeHtml(info.description)}</p>` : ''}
+            ${info.why_fits ? `<p class="cinema-desc" style="color: #a5b4fc;">💡 ${escapeHtml(info.why_fits)}</p>` : ''}
+            <div class="cinema-links">
+                ${info.kinopoisk_url ? `<a href="${escapeHtml(info.kinopoisk_url)}" target="_blank" class="cinema-link link-kinopoisk">🔶 Кинопоиск</a>` : ''}
+                ${info.shodim_url ? `<a href="${escapeHtml(info.shodim_url)}" target="_blank" class="cinema-link link-shodim">🎞 Shodim.kz</a>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderMapBlock(points, recIndex) {
+    if (!points || !Array.isArray(points) || points.length === 0) return '';
+
+    const stopsHtml = points.map((p, i) => {
+        const isHome = p.order === 0 || (p.name && p.name.includes('🏠'));
+        return `
+        <div class="map-stop-item">
+            <div class="stop-dot" style="${isHome ? 'background: linear-gradient(135deg,#10b981,#059669);' : ''}">
+                ${isHome ? '🏠' : (p.order || i + 1)}
+            </div>
+            <div>
+                <strong>${escapeHtml(p.name || '')}</strong>
+                ${p.address && !isHome ? ` — <span>${escapeHtml(p.address)}</span>` : ''}
+                ${p.tip ? `<br><span style="font-size:0.8rem; color: #a5b4fc;">💡 ${escapeHtml(p.tip)}</span>` : ''}
+                ${isHome ? `<br><span style="font-size:0.78rem; color: #34d399;">Начало маршрута</span>` : ''}
+            </div>
+        </div>
+    `}).join('');
+
+    return `
+        <div class="map-section">
+            <div class="map-header">🗺️ Маршрут (${points.length} точек)</div>
+            <div class="map-container" id="map-${recIndex}"></div>
+            <div class="map-stops">${stopsHtml}</div>
+        </div>
+    `;
+}
+
+function initMap(points, recIndex) {
+    const mapId = `map-${recIndex}`;
+    if (mapInstances[mapId]) return;
+
+    const validPoints = points.filter(p => p.lat && p.lng);
+    if (validPoints.length === 0) return;
+
+    const map = L.map(mapId, { zoomControl: true, scrollWheelZoom: false });
+    mapInstances[mapId] = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 18
+    }).addTo(map);
+
+    const latlngs = [];
+
+    validPoints.forEach((point, i) => {
+        const latlng = [point.lat, point.lng];
+        latlngs.push(latlng);
+
+        const isHome = point.order === 0 || (point.name && point.name.includes('🏠'));
+
+        const icon = L.divIcon({
+            className: '',
+            html: isHome
+                ? `<div style="
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    color: white; width: 34px; height: 34px;
+                    border-radius: 50%; display: flex; align-items: center;
+                    justify-content: center; font-size: 16px;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 10px rgba(16,185,129,0.6);
+                  ">🏠</div>`
+                : `<div style="
+                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                    color: white; width: 28px; height: 28px;
+                    border-radius: 50%; display: flex; align-items: center;
+                    justify-content: center; font-size: 12px; font-weight: bold;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                  ">${point.order || i + 1}</div>`,
+            iconSize: isHome ? [34, 34] : [28, 28],
+            iconAnchor: isHome ? [17, 17] : [14, 14]
+        });
+
+        const marker = L.marker(latlng, { icon }).addTo(map);
+        if (point.name) {
+            marker.bindPopup(`<strong>${point.name}</strong>${point.address && !isHome ? '<br>' + point.address : ''}${point.tip ? '<br><em>' + point.tip + '</em>' : ''}`);
+        }
+    });
+
+    // Линия маршрута
+    if (latlngs.length > 1) {
+        L.polyline(latlngs, {
+            color: '#6366f1', weight: 3,
+            opacity: 0.8, dashArray: '8, 6'
+        }).addTo(map);
+    }
+
+    if (latlngs.length === 1) {
+        map.setView(latlngs[0], 14);
+    } else {
+        map.fitBounds(latlngs, { padding: [30, 30] });
+    }
 }
 
 function escapeHtml(str) {

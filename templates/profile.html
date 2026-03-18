@@ -3,6 +3,8 @@
 {% block title %}Профиль - SoulWay{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <div class="container profile-page">
     <h1>Мой профиль и аналитика</h1>
     
@@ -19,6 +21,43 @@
             <h3>Среднее настроение</h3>
             <p class="stat-value" id="avgMood">-</p>
         </div>
+    </div>
+
+    <!-- Секция адреса -->
+    <div class="address-section">
+        <div class="address-header">
+            <div>
+                <h2>📍 Мой адрес</h2>
+                <p class="subtitle" style="margin:0;">Используется для построения маршрутов в рекомендациях</p>
+            </div>
+            <div id="addressSavedBadge" class="address-saved-badge" style="display:none;">✓ Сохранён</div>
+        </div>
+
+        <div class="address-search-row">
+            <div class="address-input-wrap">
+                <input type="text" id="addressInput" class="form-control" placeholder="Введите улицу и дом, например: Алматы, ул. Абая 10">
+                <button class="btn-search-addr" onclick="searchAddress()">🔍 Найти</button>
+            </div>
+            <button class="btn btn-geo" onclick="detectGeo()" title="Определить по GPS">📡 Моё местоположение</button>
+        </div>
+
+        <div id="addressSearchResults" class="address-results" style="display:none;"></div>
+
+        <div id="addressMapWrap" class="address-map-wrap" style="display:none;">
+            <div id="addressMap" class="address-map"></div>
+            <div id="addressConfirm" class="address-confirm">
+                <div class="address-confirm-text">
+                    <span>📍</span>
+                    <div>
+                        <div id="chosenAddressText" class="chosen-addr-name"></div>
+                        <div id="chosenAddressCoords" class="chosen-addr-coords"></div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveAddress()">💾 Сохранить адрес</button>
+            </div>
+        </div>
+
+        <div id="addressGeoStatus" class="geo-status" style="display:none;"></div>
     </div>
 
     <div class="analytics-section">
@@ -250,5 +289,333 @@ if (analyzeBtn) {
     font-family: monospace;
     font-size: 0.9rem;
 }
+
+/* Секция адреса */
+.address-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.address-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.address-saved-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.address-search-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.address-input-wrap {
+    flex: 1;
+    min-width: 260px;
+    display: flex;
+    gap: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.address-input-wrap .form-control {
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--border);
+    flex: 1;
+}
+
+.btn-search-addr {
+    background: var(--surface-light);
+    border: none;
+    padding: 0 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.btn-search-addr:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.btn-geo {
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.btn-geo:hover {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+.address-results {
+    margin-top: 0.75rem;
+    background: var(--surface-light);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.addr-result-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text);
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.addr-result-item:last-child { border-bottom: none; }
+.addr-result-item:hover { background: var(--border); }
+
+.address-map-wrap {
+    margin-top: 1.25rem;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.address-map {
+    height: 260px;
+    width: 100%;
+}
+
+.address-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--surface-light);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.address-confirm-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 1.4rem;
+}
+
+.address-confirm-text > span { line-height: 1.4; }
+
+.chosen-addr-name {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.chosen-addr-coords {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+    font-family: monospace;
+}
+
+.geo-status {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: rgba(99, 102, 241, 0.1);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
 </style>
+
+<script>
+// ───── Адрес ─────
+let addressMap = null;
+let addressMarker = null;
+let chosenLat = null;
+let chosenLng = null;
+let chosenName = '';
+
+// Загружаем сохранённый адрес из preferences
+const savedPrefs = {{ user_data.preferences | tojson | safe }};
+if (savedPrefs && savedPrefs.home_address) {
+    const ha = savedPrefs.home_address;
+    chosenLat = ha.lat;
+    chosenLng = ha.lng;
+    chosenName = ha.name;
+    document.getElementById('addressInput').value = ha.name;
+    document.getElementById('addressSavedBadge').style.display = 'flex';
+    showAddressMap(ha.lat, ha.lng, ha.name);
+}
+
+async function searchAddress() {
+    const query = document.getElementById('addressInput').value.trim();
+    if (!query) return;
+
+    const resultsDiv = document.getElementById('addressSearchResults');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div class="addr-result-item">🔍 Поиск...</div>';
+
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=ru`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
+        const data = await res.json();
+
+        if (!data.length) {
+            resultsDiv.innerHTML = '<div class="addr-result-item">😔 Ничего не найдено. Попробуйте уточнить адрес.</div>';
+            return;
+        }
+
+        resultsDiv.innerHTML = data.map((item, i) => `
+            <div class="addr-result-item" onclick="selectAddress(${item.lat}, ${item.lon}, ${JSON.stringify(item.display_name)})">
+                📍 ${item.display_name}
+            </div>
+        `).join('');
+    } catch (e) {
+        resultsDiv.innerHTML = '<div class="addr-result-item">❌ Ошибка поиска. Проверьте соединение.</div>';
+    }
+}
+
+function selectAddress(lat, lng, name) {
+    document.getElementById('addressSearchResults').style.display = 'none';
+    document.getElementById('addressInput').value = name;
+    showAddressMap(lat, lng, name);
+}
+
+function showAddressMap(lat, lng, name) {
+    chosenLat = parseFloat(lat);
+    chosenLng = parseFloat(lng);
+    chosenName = name;
+
+    document.getElementById('addressMapWrap').style.display = 'block';
+    document.getElementById('chosenAddressText').textContent = name;
+    document.getElementById('chosenAddressCoords').textContent = `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
+
+    if (!addressMap) {
+        addressMap = L.map('addressMap', { zoomControl: true, scrollWheelZoom: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap', maxZoom: 18
+        }).addTo(addressMap);
+
+        // Разрешаем двигать маркер кликом по карте
+        addressMap.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            reverseGeocode(lat, lng);
+        });
+    }
+
+    addressMap.setView([lat, lng], 15);
+
+    if (addressMarker) {
+        addressMarker.setLatLng([lat, lng]);
+    } else {
+        const icon = L.divIcon({
+            className: '',
+            html: `<div style="
+                background: linear-gradient(135deg,#6366f1,#8b5cf6);
+                width:36px; height:36px; border-radius:50% 50% 50% 0;
+                transform: rotate(-45deg);
+                border: 3px solid white;
+                box-shadow: 0 3px 12px rgba(99,102,241,0.5);
+            "></div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36]
+        });
+        addressMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(addressMap);
+        addressMarker.on('dragend', function(e) {
+            const pos = e.target.getLatLng();
+            reverseGeocode(pos.lat, pos.lng);
+        });
+    }
+
+    addressMarker.bindPopup('🏠 Мой адрес').openPopup();
+}
+
+async function reverseGeocode(lat, lng) {
+    chosenLat = lat;
+    chosenLng = lng;
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const name = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        chosenName = name;
+        document.getElementById('chosenAddressText').textContent = name;
+        document.getElementById('chosenAddressCoords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('addressInput').value = name;
+        if (addressMarker) addressMarker.setLatLng([lat, lng]);
+    } catch (e) {
+        chosenName = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+}
+
+function detectGeo() {
+    const statusDiv = document.getElementById('addressGeoStatus');
+    statusDiv.style.display = 'block';
+    statusDiv.textContent = '📡 Определяем ваше местоположение...';
+
+    if (!navigator.geolocation) {
+        statusDiv.textContent = '❌ Геолокация не поддерживается вашим браузером.';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+            statusDiv.style.display = 'none';
+            await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+            showAddressMap(pos.coords.latitude, pos.coords.longitude, chosenName);
+        },
+        (err) => {
+            statusDiv.textContent = '❌ Не удалось получить геолокацию. Разрешите доступ в браузере.';
+        },
+        { timeout: 10000 }
+    );
+}
+
+async function saveAddress() {
+    if (!chosenLat || !chosenLng) {
+        alert('Сначала выберите адрес на карте');
+        return;
+    }
+
+    const res = await fetch('/preferences/save-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: chosenName, lat: chosenLat, lng: chosenLng })
+    });
+
+    if (res.ok) {
+        document.getElementById('addressSavedBadge').style.display = 'flex';
+        showNotification('Адрес сохранён! Теперь маршруты будут строиться от вашего дома 🏠');
+    } else {
+        showNotification('Ошибка при сохранении', 'error');
+    }
+}
+
+// Поиск по Enter
+document.getElementById('addressInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') searchAddress();
+});
+</script>
+
 {% endblock %}

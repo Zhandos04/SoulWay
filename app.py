@@ -502,6 +502,45 @@ def save_preferences():
     return jsonify({'success': True})
 
 
+@app.route('/preferences/save-address', methods=['POST'])
+@login_required
+def save_address():
+    """Сохранить домашний адрес пользователя (merge с текущими preferences)"""
+    data = request.json
+    user_id = get_user_id()
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Читаем текущие preferences
+    cursor.execute('SELECT data FROM preferences WHERE user_id = %s ORDER BY id DESC LIMIT 1', (user_id,))
+    row = cursor.fetchone()
+    current_prefs = json.loads(row['data']) if row else {}
+
+    # Обновляем только home_address
+    current_prefs['home_address'] = {
+        'name': data.get('name', ''),
+        'lat': data.get('lat'),
+        'lng': data.get('lng')
+    }
+
+    if row:
+        cursor.execute(
+            'UPDATE preferences SET data = %s, updated_at = %s WHERE user_id = %s',
+            (json.dumps(current_prefs, ensure_ascii=False), datetime.now().isoformat(), user_id)
+        )
+    else:
+        cursor.execute(
+            'INSERT INTO preferences (user_id, data, updated_at) VALUES (%s, %s, %s)',
+            (user_id, json.dumps(current_prefs, ensure_ascii=False), datetime.now().isoformat())
+        )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+
 @app.route('/recommendations')
 @login_required_page
 def recommendations():
@@ -557,25 +596,89 @@ def get_recommendations():
     Бюджет: {data.get('budget', prefs.get('budget', 'medium'))}
     """
 
+    activity_type = data.get('type', 'any')
+    home_address = prefs.get('home_address')
+    
+    home_addr_instruction = ""
+    if home_address and home_address.get('lat'):
+        home_addr_instruction = f"""
+    ДОМАШНИЙ АДРЕС ПОЛЬЗОВАТЕЛЯ (начальная точка маршрута):
+    Название: {home_address.get('name', '')}
+    Координаты: lat={home_address.get('lat')}, lng={home_address.get('lng')}
+    """
+    
+    # Формируем инструкции для кино и карты в зависимости от типа
+    cinema_instruction = ""
+    map_instruction = ""
+    
+    if activity_type in ['any', 'city']:
+        cinema_instruction = """
+    ВАЖНО: Если рекомендуешь кино или сериал, обязательно добавь поле "cinema_info" со структурой:
+    {
+        "title_ru": "название на русском",
+        "title_en": "название на английском",
+        "year": 2024,
+        "genre": "жанр",
+        "rating_imdb": "7.5",
+        "duration_min": 120,
+        "kinopoisk_url": "https://www.kinopoisk.ru/film/XXXXX/",
+        "shodim_url": "https://shodim.kz/films/XXXXX/",
+        "description": "краткое описание",
+        "why_fits": "почему подходит пользователю"
+    }
+    Используй реальные популярные фильмы и сериалы, доступные на shodim.kz (казахстанский стриминг).
+    """
+
+    if activity_type in ['city', 'travel']:
+        start_point_instruction = ""
+        if home_address and home_address.get('lat'):
+            start_point_instruction = f"""
+    ОБЯЗАТЕЛЬНО: Первой точкой маршрута (order: 0) должен быть домашний адрес пользователя:
+    name: "🏠 Мой дом", lat: {home_address.get('lat')}, lng: {home_address.get('lng')}, address: "{home_address.get('name', '')}"
+    Затем добавь точки маршрута начиная с order: 1.
+    """
+        map_instruction = f"""
+    ВАЖНО: Для активностей в городе или путешествий добавь поле "map_points" — массив точек маршрута:
+    [
+        {{
+            "name": "название места",
+            "address": "адрес или описание",
+            "lat": 51.1801,
+            "lng": 71.4460,
+            "order": 1,
+            "tip": "совет для посещения"
+        }}
+    ]
+    {start_point_instruction}
+    Используй реальные координаты. Для городских активностей — координаты в городе пользователя (Казахстан).
+    Для путешествий — координаты точек маршрута в указанной стране.
+    """
+
     prompt = f"""
-    Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга.
+    Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга в Казахстане.
     
     {context}
+    {home_addr_instruction}
     
     На основе эмоционального состояния, предпочтений и контекста пользователя,
     подбери 5-7 персонализированных рекомендаций для досуга.
+    
+    {cinema_instruction}
+    {map_instruction}
     
     Ответ дай ТОЛЬКО в формате JSON без markdown-обёртки:
     {{
         "recommendations": [
             {{
                 "title": "название",
-                "type": "тип",
+                "type": "тип (кино/прогулка/путешествие/книга/музыка/etc)",
                 "why_now": "почему подходит именно сейчас",
                 "benefit": "польза для эмоций",
                 "budget": "бюджет",
                 "duration": "продолжительность",
-                "details": "детали и конкретные советы"
+                "details": "детали и конкретные советы",
+                "cinema_info": null,
+                "map_points": null
             }}
         ],
         "overall_insight": "общий инсайт о текущем состоянии и потребностях"
