@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Предпочтения - SoulWay{% endblock %}
+{% block title %}Предпочтения — SoulWay{% endblock %}
 
 {% block content %}
 <div class="container preferences-page">
@@ -11,24 +11,24 @@
         <div class="form-section">
             <h2>Интересы</h2>
             <div class="checkbox-group">
-                <label><input type="checkbox" name="interests" value="кино"> Кино</label>
-                <label><input type="checkbox" name="interests" value="книги"> Книги</label>
-                <label><input type="checkbox" name="interests" value="музыка"> Музыка</label>
-                <label><input type="checkbox" name="interests" value="искусство"> Искусство</label>
-                <label><input type="checkbox" name="interests" value="спорт"> Спорт</label>
-                <label><input type="checkbox" name="interests" value="природа"> Природа</label>
-                <label><input type="checkbox" name="interests" value="еда"> Еда и кулинария</label>
-                <label><input type="checkbox" name="interests" value="технологии"> Технологии</label>
-                <label><input type="checkbox" name="interests" value="путешествия"> Путешествия</label>
+                <label><input type="checkbox" name="interests" value="кино"> 🎬 Кино</label>
+                <label><input type="checkbox" name="interests" value="книги"> 📚 Книги</label>
+                <label><input type="checkbox" name="interests" value="музыка"> 🎵 Музыка</label>
+                <label><input type="checkbox" name="interests" value="искусство"> 🎨 Искусство</label>
+                <label><input type="checkbox" name="interests" value="спорт"> ⚽ Спорт</label>
+                <label><input type="checkbox" name="interests" value="природа"> 🌿 Природа</label>
+                <label><input type="checkbox" name="interests" value="еда"> 🍳 Еда и кулинария</label>
+                <label><input type="checkbox" name="interests" value="технологии"> 💻 Технологии</label>
+                <label><input type="checkbox" name="interests" value="путешествия"> ✈️ Путешествия</label>
             </div>
         </div>
 
         <div class="form-section">
             <h2>Бюджет</h2>
             <select name="budget" class="form-control">
-                <option value="low">Ограниченный (до 1000₽)</option>
-                <option value="medium">Средний (1000-5000₽)</option>
-                <option value="high">Комфортный (5000₽+)</option>
+                <option value="low">Ограниченный (до 1 000 ₸)</option>
+                <option value="medium">Средний (1 000 – 5 000 ₸)</option>
+                <option value="high">Комфортный (5 000 ₸+)</option>
             </select>
         </div>
 
@@ -52,61 +52,43 @@
 
         <div class="form-section">
             <h2>Любимые жанры</h2>
-            <input type="text" name="favorite_genres" class="form-control" 
+            <input type="text" name="favorite_genres" class="form-control"
                    placeholder="драма, научная фантастика, психология...">
         </div>
 
         <div class="form-section">
             <h2>Что избегать</h2>
-            <input type="text" name="avoid" class="form-control" 
+            <input type="text" name="avoid" class="form-control"
                    placeholder="ужасы, романтика, толпы...">
         </div>
 
-        <button type="submit" class="btn btn-primary">Сохранить предпочтения</button>
+        <button type="submit" class="btn btn-primary btn-large">Сохранить предпочтения</button>
     </form>
 </div>
 
 <script>
-// Загружаем сохранённые предпочтения из сервера
 const saved = {{ preferences | tojson | safe }};
 
 if (saved && Object.keys(saved).length > 0) {
-    // Чекбоксы интересов
     document.querySelectorAll('input[name="interests"]').forEach(function(cb) {
-        if (saved.interests && saved.interests.includes(cb.value)) {
-            cb.checked = true;
-        }
+        if (saved.interests && saved.interests.includes(cb.value)) cb.checked = true;
     });
-
-    // Селекты
-    if (saved.budget) {
-        document.querySelector('select[name="budget"]').value = saved.budget;
-    }
-    if (saved.activity_level) {
-        document.querySelector('select[name="activity_level"]').value = saved.activity_level;
-    }
-    if (saved.social_preference) {
-        document.querySelector('select[name="social_preference"]').value = saved.social_preference;
-    }
-
-    // Текстовые поля
-    if (saved.favorite_genres && saved.favorite_genres.length > 0) {
+    if (saved.budget) document.querySelector('select[name="budget"]').value = saved.budget;
+    if (saved.activity_level) document.querySelector('select[name="activity_level"]').value = saved.activity_level;
+    if (saved.social_preference) document.querySelector('select[name="social_preference"]').value = saved.social_preference;
+    if (saved.favorite_genres && saved.favorite_genres.length > 0)
         document.querySelector('input[name="favorite_genres"]').value = saved.favorite_genres.join(', ');
-    }
-    if (saved.avoid && saved.avoid.length > 0) {
+    if (saved.avoid && saved.avoid.length > 0)
         document.querySelector('input[name="avoid"]').value = saved.avoid.join(', ');
-    }
 }
 
-// Сохранение формы
 document.getElementById('preferencesForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
     const formData = new FormData(this);
     const interests = Array.from(formData.getAll('interests'));
     const favorite_genres = formData.get('favorite_genres').split(',').map(g => g.trim()).filter(Boolean);
     const avoid = formData.get('avoid').split(',').map(a => a.trim()).filter(Boolean);
-    
+
     const data = {
         interests,
         budget: formData.get('budget'),
@@ -115,18 +97,14 @@ document.getElementById('preferencesForm').addEventListener('submit', async func
         favorite_genres,
         avoid
     };
-    
+
     const response = await fetch('/preferences/save', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     });
-    
-    if (response.ok) {
-        alert('Предпочтения сохранены!');
-    }
+
+    if (response.ok) showNotification('Предпочтения сохранены!');
 });
 </script>
 {% endblock %}

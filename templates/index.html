@@ -3,52 +3,58 @@
 {% block content %}
 <div class="hero">
     <div class="container">
-        <h1>Добро пожаловать в SoulWay</h1>
-        <p class="subtitle">Персональный ассистент для осмысленного досуга и самопознания</p>
-        
+        <h1>Добро пожаловать<br>в <em>SoulWay</em></h1>
+        <p class="subtitle">Персональный ассистент для осмысленного досуга,<br>самопознания и эмоционального баланса</p>
+
         <div class="hero-cards">
             <div class="card">
-                <div class="card-icon">📔</div>
+                <span class="card-icon">📔</span>
                 <h3>Дневник эмоций</h3>
-                <p>Записывайте мысли и отслеживайте эмоциональное состояние</p>
+                <p>Записывайте мысли и отслеживайте эмоциональное состояние день за днём</p>
                 <a href="/journal" class="btn">Начать писать</a>
             </div>
-            
+
             <div class="card">
-                <div class="card-icon">🎯</div>
+                <span class="card-icon">🎯</span>
                 <h3>Персональные рекомендации</h3>
-                <p>Получайте подборки досуга на основе ИИ-анализа</p>
+                <p>Получайте умные подборки досуга на основе анализа вашего состояния</p>
                 <a href="/recommendations" class="btn">Получить рекомендации</a>
             </div>
-            
+
             <div class="card">
-                <div class="card-icon">✈️</div>
-                <h3>Путешествия души</h3>
-                <p>Направления для роста и эмоционального баланса</p>
+                <span class="card-icon">✈️</span>
+                <h3>Путешествия</h3>
+                <p>Направления для роста, вдохновения и эмоционального обновления</p>
                 <a href="/recommendations?type=travel" class="btn">Подобрать поездку</a>
             </div>
         </div>
     </div>
 </div>
 
-<section class="features">
+<section style="padding: 4rem 0; border-top: 1px solid var(--border);">
     <div class="container">
-        <h2>Как это работает</h2>
-        <div class="features-grid">
-            <div class="feature">
-                <span class="feature-number">1</span>
-                <h3>Анализ состояния</h3>
-                <p>ИИ анализирует ваши записи, настроение и предпочтения</p>
+        <p style="text-align:center; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-tertiary); font-weight:600; margin-bottom:2.5rem;">Как это работает</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1.5rem;">
+            <div style="display:flex; gap:1rem; align-items:flex-start;">
+                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">1</div>
+                <div>
+                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Анализ состояния</h3>
+                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">ИИ анализирует ваши записи, настроение и предпочтения</p>
+                </div>
             </div>
-            <div class="feature">
-                <span class="feature-number">2</span>
-                <h3>Умный подбор</h3>
-                <p>Система находит активности, подходящие именно сейчас</p>
+            <div style="display:flex; gap:1rem; align-items:flex-start;">
+                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">2</div>
+                <div>
+                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Умный подбор</h3>
+                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">Система находит активности, подходящие именно сейчас</p>
+                </div>
             </div>
-            <div class="feature">
-                <span class="feature-number">3</span>
-                <h3>Рост и баланс</h3>
-                <p>Каждая рекомендация - шаг к самопознанию</p>
+            <div style="display:flex; gap:1rem; align-items:flex-start;">
+                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">3</div>
+                <div>
+                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Рост и баланс</h3>
+                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">Каждая рекомендация — шаг к самопознанию</p>
+                </div>
             </div>
         </div>
     </div>

@@ -4,14 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SoulWay - Осмысленный досуг{% endblock %}</title>
+    <title>{% block title %}SoulWay — Осмысленный досуг{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="/" class="logo">🌟 SoulWay</a>
+            <a href="/" class="logo">🌿 <span>SoulWay</span></a>
             <ul class="nav-menu">
                 <li><a href="/">Главная</a></li>
                 <li><a href="/journal">Дневник</a></li>
@@ -34,7 +36,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2026 SoulWay. Инструмент самопознания и баланса.</p>
+            <p>&copy; 2026 SoulWay — инструмент самопознания и баланса</p>
         </div>
     </footer>
 

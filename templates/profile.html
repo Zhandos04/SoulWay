@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Профиль - SoulWay{% endblock %}
+{% block title %}Профиль — SoulWay{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <div class="container profile-page">
-    <h1>Мой профиль и аналитика</h1>
-    
+    <h1>Мой профиль</h1>
+    <p class="subtitle">Статистика и эмоциональная аналитика</p>
+
     <div class="stats-grid">
         <div class="stat-card">
             <h3>Записей в дневнике</h3>
@@ -19,26 +21,26 @@
         </div>
         <div class="stat-card">
             <h3>Среднее настроение</h3>
-            <p class="stat-value" id="avgMood">-</p>
+            <p class="stat-value" id="avgMood">—</p>
         </div>
     </div>
 
-    <!-- Секция адреса -->
+    <!-- Адрес -->
     <div class="address-section">
         <div class="address-header">
             <div>
                 <h2>📍 Мой адрес</h2>
-                <p class="subtitle" style="margin:0;">Используется для построения маршрутов в рекомендациях</p>
+                <p style="color:var(--text-secondary); font-size:0.875rem; margin:0;">Используется для построения маршрутов</p>
             </div>
             <div id="addressSavedBadge" class="address-saved-badge" style="display:none;">✓ Сохранён</div>
         </div>
 
         <div class="address-search-row">
             <div class="address-input-wrap">
-                <input type="text" id="addressInput" class="form-control" placeholder="Введите улицу и дом, например: Алматы, ул. Абая 10">
+                <input type="text" id="addressInput" class="form-control" placeholder="Например: Алматы, ул. Абая 10">
                 <button class="btn-search-addr" onclick="searchAddress()">🔍 Найти</button>
             </div>
-            <button class="btn btn-geo" onclick="detectGeo()" title="Определить по GPS">📡 Моё местоположение</button>
+            <button class="btn btn-outline" onclick="detectGeo()" title="Определить по GPS">📡 Моё местоположение</button>
         </div>
 
         <div id="addressSearchResults" class="address-results" style="display:none;"></div>
@@ -53,250 +55,81 @@
                         <div id="chosenAddressCoords" class="chosen-addr-coords"></div>
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="saveAddress()">💾 Сохранить адрес</button>
+                <button class="btn btn-primary" onclick="saveAddress()">💾 Сохранить</button>
             </div>
         </div>
 
         <div id="addressGeoStatus" class="geo-status" style="display:none;"></div>
     </div>
 
+    <!-- Аналитика -->
     <div class="analytics-section">
         <h2>Эмоциональная динамика</h2>
-        <p class="subtitle">Проанализируйте свои эмоциональные паттерны</p>
-        
+        <p class="subtitle" style="margin-bottom:1.5rem;">Проанализируйте свои эмоциональные паттерны</p>
+
         {% if user_data.journal_entries|length > 0 %}
             <button id="analyzeBtn" class="btn btn-primary">📊 Проанализировать</button>
             <div id="analysisResult" class="analysis-result" style="display: none;"></div>
         {% else %}
             <div class="empty-state">
-                <p>Недостаточно данных для анализа.</p>
-                <p>Начните вести <a href="/journal">дневник</a>, чтобы получить персональную аналитику!</p>
+                <p>Начните вести <a href="/journal">дневник</a>, чтобы получить аналитику.</p>
             </div>
         {% endif %}
     </div>
 
-    <div class="history-section" style="margin-top: 3rem;">
-        <h2>История рекомендаций</h2>
-        {% if user_data.history|length > 0 %}
-            <div class="history-list">
-                {% for item in user_data.history|reverse %}
-                {% if loop.index <= 5 %}
-                <div class="history-item">
-                    <div class="history-date">{{ item.timestamp }}</div>
-                    <div class="history-context">
-                        Запрос: {{ item.request.context if item.request.context else 'общие рекомендации' }}
+    <!-- История -->
+    <div style="margin-top: 2rem;">
+        <div class="analytics-section">
+            <h2>История рекомендаций</h2>
+            {% if user_data.history|length > 0 %}
+                <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1.25rem;">
+                    {% for item in user_data.history|reverse %}
+                    {% if loop.index <= 5 %}
+                    <div class="history-item">
+                        <div class="history-date">{{ item.timestamp }}</div>
+                        <div class="history-context">
+                            Запрос: {{ item.request.context if item.request.context else 'общие рекомендации' }}
+                        </div>
                     </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
-                {% endif %}
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="empty-state">История пуста. Получите свои первые <a href="/recommendations">рекомендации</a>!</p>
-        {% endif %}
+            {% else %}
+                <div class="empty-state" style="margin-top:1rem;">
+                    <p>История пуста. Получите свои первые <a href="/recommendations">рекомендации</a>!</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
 <style>
-.empty-state {
-    background: var(--surface-light);
-    padding: 2rem;
-    border-radius: 8px;
-    text-align: center;
-    color: var(--text-secondary);
-}
-
-.empty-state a {
-    color: var(--primary);
-    text-decoration: none;
-}
-
-.empty-state a:hover {
-    text-decoration: underline;
-}
-
-.history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
 .history-item {
-    background: var(--surface);
-    padding: 1rem;
-    border-radius: 8px;
+    background: var(--surface-2);
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-sm);
     border-left: 3px solid var(--primary);
 }
 
 .history-date {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    margin-bottom: 0.3rem;
 }
 
 .history-context {
     color: var(--text);
-}
-</style>
-
-<script>
-// Расчет среднего настроения
-const entries = {{ user_data.journal_entries|tojson|safe }};
-if (entries && entries.length > 0) {
-    const avgMood = entries.reduce((sum, e) => sum + (e.mood || 0), 0) / entries.length;
-    document.getElementById('avgMood').textContent = avgMood.toFixed(1) + '/10';
-} else {
-    document.getElementById('avgMood').textContent = 'Нет данных';
-}
-
-// Анализ эмоциональной динамики
-const analyzeBtn = document.getElementById('analyzeBtn');
-if (analyzeBtn) {
-    analyzeBtn.addEventListener('click', async function() {
-        this.disabled = true;
-        this.textContent = '⏳ Анализирую...';
-        
-        const resultDiv = document.getElementById('analysisResult');
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Анализ эмоциональной динамики...</p></div>';
-        
-        try {
-            const response = await fetch('/analyze/emotional-dynamics');
-            const result = await response.json();
-            
-            if (result.error) {
-                resultDiv.innerHTML = `<div class="error-message">${result.error}</div>`;
-            } else if (result.analysis) {
-                // Форматируем результат
-                let html = '<div class="analysis-content">';
-                
-                if (result.analysis.raw) {
-                    html += `<div class="analysis-raw">${result.analysis.raw}</div>`;
-                } else {
-                    html += `
-                        <div class="analysis-item">
-                            <h3>📈 Тренд настроения</h3>
-                            <p>${result.analysis.trend || 'Не определен'}</p>
-                        </div>
-                        
-                        <div class="analysis-item">
-                            <h3>📊 Среднее настроение</h3>
-                            <p class="stat-large">${result.analysis.average_mood || 'N/A'}/10</p>
-                        </div>
-                        
-                        ${result.analysis.positive_triggers ? `
-                        <div class="analysis-item">
-                            <h3>✨ Позитивные триггеры</h3>
-                            <ul>
-                                ${result.analysis.positive_triggers.map(t => `<li>${t}</li>`).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-                        
-                        ${result.analysis.negative_triggers ? `
-                        <div class="analysis-item">
-                            <h3>⚠️ Негативные триггеры</h3>
-                            <ul>
-                                ${result.analysis.negative_triggers.map(t => `<li>${t}</li>`).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-                        
-                        ${result.analysis.recommendations ? `
-                        <div class="analysis-item">
-                            <h3>💡 Рекомендации</h3>
-                            <ul>
-                                ${result.analysis.recommendations.map(r => `<li>${r}</li>`).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-                        
-                        ${result.analysis.summary ? `
-                        <div class="analysis-item summary">
-                            <h3>📝 Общий вывод</h3>
-                            <p>${result.analysis.summary}</p>
-                        </div>
-                        ` : ''}
-                    `;
-                }
-                
-                html += '</div>';
-                resultDiv.innerHTML = html;
-            }
-        } catch (error) {
-            resultDiv.innerHTML = `<div class="error-message">Ошибка: ${error.message}</div>`;
-        }
-        
-        this.disabled = false;
-        this.textContent = '🔄 Обновить анализ';
-    });
-}
-</script>
-
-<style>
-.analysis-content {
-    display: grid;
-    gap: 1.5rem;
-}
-
-.analysis-item {
-    background: var(--surface-light);
-    padding: 1.5rem;
-    border-radius: 8px;
-}
-
-.analysis-item h3 {
-    margin-bottom: 1rem;
-    color: var(--primary);
-}
-
-.analysis-item ul {
-    list-style: none;
-    padding: 0;
-}
-
-.analysis-item li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border);
-}
-
-.analysis-item li:last-child {
-    border-bottom: none;
-}
-
-.stat-large {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--primary);
-}
-
-.summary {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-    border: 1px solid var(--primary);
-}
-
-.error-message {
-    background: var(--danger);
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-}
-
-.analysis-raw {
-    white-space: pre-wrap;
-    background: var(--surface-light);
-    padding: 1rem;
-    border-radius: 8px;
-    font-family: monospace;
     font-size: 0.9rem;
 }
 
-/* Секция адреса */
+/* Адрес */
 .address-section {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     padding: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .address-header {
@@ -308,14 +141,21 @@ if (analyzeBtn) {
     gap: 1rem;
 }
 
+.address-header h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.4rem;
+    font-weight: 400;
+    margin-bottom: 0.25rem;
+}
+
 .address-saved-badge {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    padding: 0.35rem 0.9rem;
+    background: var(--success-pale);
+    color: var(--success);
+    border: 1px solid #bbf7d0;
+    padding: 0.3rem 0.9rem;
     border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    font-size: 0.82rem;
+    font-weight: 600;
 }
 
 .address-search-row {
@@ -329,10 +169,9 @@ if (analyzeBtn) {
     flex: 1;
     min-width: 260px;
     display: flex;
-    gap: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
-    border: 1px solid var(--border);
+    border: 1.5px solid var(--border);
 }
 
 .address-input-wrap .form-control {
@@ -342,60 +181,60 @@ if (analyzeBtn) {
     flex: 1;
 }
 
+.address-input-wrap .form-control:focus {
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.address-input-wrap:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(80,70,228,0.12);
+}
+
 .btn-search-addr {
-    background: var(--surface-light);
+    background: var(--surface-2);
     border: none;
     padding: 0 1rem;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     white-space: nowrap;
-    transition: background 0.2s;
+    transition: background 0.15s;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .btn-search-addr:hover {
-    background: var(--border);
+    background: var(--surface-3);
     color: var(--text);
-}
-
-.btn-geo {
-    background: rgba(99, 102, 241, 0.15);
-    color: #a5b4fc;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    white-space: nowrap;
-    font-size: 0.9rem;
-}
-
-.btn-geo:hover {
-    background: rgba(99, 102, 241, 0.25);
 }
 
 .address-results {
     margin-top: 0.75rem;
-    background: var(--surface-light);
-    border-radius: 10px;
+    background: var(--surface);
+    border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
 }
 
 .addr-result-item {
     padding: 0.75rem 1rem;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     color: var(--text);
-    transition: background 0.15s;
+    transition: background 0.1s;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .addr-result-item:last-child { border-bottom: none; }
-.addr-result-item:hover { background: var(--border); }
+.addr-result-item:hover { background: var(--surface-2); }
 
 .address-map-wrap {
     margin-top: 1.25rem;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid var(--border);
 }
@@ -410,29 +249,28 @@ if (analyzeBtn) {
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.25rem;
-    background: var(--surface-light);
+    background: var(--surface-2);
     gap: 1rem;
     flex-wrap: wrap;
+    border-top: 1px solid var(--border);
 }
 
 .address-confirm-text {
     display: flex;
     align-items: flex-start;
     gap: 0.6rem;
-    font-size: 1.4rem;
+    font-size: 1.2rem;
 }
 
-.address-confirm-text > span { line-height: 1.4; }
-
 .chosen-addr-name {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--text);
     font-weight: 500;
 }
 
 .chosen-addr-coords {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
     margin-top: 0.15rem;
     font-family: monospace;
 }
@@ -440,23 +278,171 @@ if (analyzeBtn) {
 .geo-status {
     margin-top: 1rem;
     padding: 0.75rem 1rem;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    background: var(--primary-pale);
+    color: var(--primary);
+    border: 1px solid #c7c2f8;
+}
+
+/* Аналитика */
+.analytics-section h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.4rem;
+    font-weight: 400;
+    margin-bottom: 0.25rem;
+}
+
+.analysis-content {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+}
+
+.analysis-item {
+    background: var(--surface-2);
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.analysis-item h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.analysis-item ul {
+    list-style: none;
+    padding: 0;
+}
+
+.analysis-item li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
     font-size: 0.9rem;
-    background: rgba(99, 102, 241, 0.1);
-    color: #a5b4fc;
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: var(--text-secondary);
+}
+
+.analysis-item li:last-child { border-bottom: none; }
+
+.stat-large {
+    font-family: 'Instrument Serif', serif;
+    font-size: 2.5rem;
+    color: var(--primary);
+}
+
+.summary {
+    background: var(--primary-pale);
+    border-color: #c7c2f8;
+}
+
+.summary h3 { color: var(--primary); }
+.summary p { color: var(--text); font-size: 0.9rem; line-height: 1.7; }
+
+.error-message {
+    background: var(--danger-pale);
+    color: var(--danger);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid #fca5a5;
+    font-size: 0.875rem;
+}
+
+.analysis-raw {
+    white-space: pre-wrap;
+    background: var(--surface-2);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 </style>
 
 <script>
-// ───── Адрес ─────
+const entries = {{ user_data.journal_entries|tojson|safe }};
+if (entries && entries.length > 0) {
+    const avgMood = entries.reduce((sum, e) => sum + (e.mood || 0), 0) / entries.length;
+    document.getElementById('avgMood').textContent = avgMood.toFixed(1) + '/10';
+}
+
+const analyzeBtn = document.getElementById('analyzeBtn');
+if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', async function() {
+        this.disabled = true;
+        this.textContent = '⏳ Анализирую...';
+
+        const resultDiv = document.getElementById('analysisResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Анализ эмоциональной динамики...</p></div>';
+
+        try {
+            const response = await fetch('/analyze/emotional-dynamics');
+            const result = await response.json();
+
+            if (result.error) {
+                resultDiv.innerHTML = `<div class="error-message">${result.error}</div>`;
+            } else if (result.analysis) {
+                let html = '<div class="analysis-content">';
+
+                if (result.analysis.raw) {
+                    html += `<div class="analysis-raw">${result.analysis.raw}</div>`;
+                } else {
+                    html += `
+                        <div class="analysis-item">
+                            <h3>📈 Тренд настроения</h3>
+                            <p>${result.analysis.trend || 'Не определён'}</p>
+                        </div>
+                        <div class="analysis-item">
+                            <h3>📊 Среднее настроение</h3>
+                            <p class="stat-large">${result.analysis.average_mood || 'N/A'}/10</p>
+                        </div>
+                        ${result.analysis.positive_triggers ? `
+                        <div class="analysis-item">
+                            <h3>✨ Позитивные триггеры</h3>
+                            <ul>${result.analysis.positive_triggers.map(t => `<li>${t}</li>`).join('')}</ul>
+                        </div>` : ''}
+                        ${result.analysis.negative_triggers ? `
+                        <div class="analysis-item">
+                            <h3>⚠️ Негативные триггеры</h3>
+                            <ul>${result.analysis.negative_triggers.map(t => `<li>${t}</li>`).join('')}</ul>
+                        </div>` : ''}
+                        ${result.analysis.recommendations ? `
+                        <div class="analysis-item">
+                            <h3>💡 Рекомендации</h3>
+                            <ul>${result.analysis.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>
+                        </div>` : ''}
+                        ${result.analysis.summary ? `
+                        <div class="analysis-item summary">
+                            <h3>📝 Общий вывод</h3>
+                            <p>${result.analysis.summary}</p>
+                        </div>` : ''}
+                    `;
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+            }
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="error-message">Ошибка: ${error.message}</div>`;
+        }
+
+        this.disabled = false;
+        this.textContent = '🔄 Обновить анализ';
+    });
+}
+
+// ── Адрес ──
 let addressMap = null;
 let addressMarker = null;
 let chosenLat = null;
 let chosenLng = null;
 let chosenName = '';
 
-// Загружаем сохранённый адрес из preferences
 const savedPrefs = {{ user_data.preferences | tojson | safe }};
 if (savedPrefs && savedPrefs.home_address) {
     const ha = savedPrefs.home_address;
@@ -482,17 +468,17 @@ async function searchAddress() {
         const data = await res.json();
 
         if (!data.length) {
-            resultsDiv.innerHTML = '<div class="addr-result-item">😔 Ничего не найдено. Попробуйте уточнить адрес.</div>';
+            resultsDiv.innerHTML = '<div class="addr-result-item">😔 Ничего не найдено.</div>';
             return;
         }
 
-        resultsDiv.innerHTML = data.map((item, i) => `
+        resultsDiv.innerHTML = data.map(item => `
             <div class="addr-result-item" onclick="selectAddress(${item.lat}, ${item.lon}, ${JSON.stringify(item.display_name)})">
                 📍 ${item.display_name}
             </div>
         `).join('');
     } catch (e) {
-        resultsDiv.innerHTML = '<div class="addr-result-item">❌ Ошибка поиска. Проверьте соединение.</div>';
+        resultsDiv.innerHTML = '<div class="addr-result-item">❌ Ошибка поиска.</div>';
     }
 }
 
@@ -516,12 +502,7 @@ function showAddressMap(lat, lng, name) {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap', maxZoom: 18
         }).addTo(addressMap);
-
-        // Разрешаем двигать маркер кликом по карте
-        addressMap.on('click', function(e) {
-            const { lat, lng } = e.latlng;
-            reverseGeocode(lat, lng);
-        });
+        addressMap.on('click', function(e) { reverseGeocode(e.latlng.lat, e.latlng.lng); });
     }
 
     addressMap.setView([lat, lng], 15);
@@ -531,15 +512,8 @@ function showAddressMap(lat, lng, name) {
     } else {
         const icon = L.divIcon({
             className: '',
-            html: `<div style="
-                background: linear-gradient(135deg,#6366f1,#8b5cf6);
-                width:36px; height:36px; border-radius:50% 50% 50% 0;
-                transform: rotate(-45deg);
-                border: 3px solid white;
-                box-shadow: 0 3px 12px rgba(99,102,241,0.5);
-            "></div>`,
-            iconSize: [36, 36],
-            iconAnchor: [18, 36]
+            html: `<div style="background:#5046e4;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 3px 10px rgba(80,70,228,0.4);"></div>`,
+            iconSize: [34, 34], iconAnchor: [17, 34]
         });
         addressMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(addressMap);
         addressMarker.on('dragend', function(e) {
@@ -552,8 +526,7 @@ function showAddressMap(lat, lng, name) {
 }
 
 async function reverseGeocode(lat, lng) {
-    chosenLat = lat;
-    chosenLng = lng;
+    chosenLat = lat; chosenLng = lng;
     try {
         const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`;
         const res = await fetch(url);
@@ -575,7 +548,7 @@ function detectGeo() {
     statusDiv.textContent = '📡 Определяем ваше местоположение...';
 
     if (!navigator.geolocation) {
-        statusDiv.textContent = '❌ Геолокация не поддерживается вашим браузером.';
+        statusDiv.textContent = '❌ Геолокация не поддерживается браузером.';
         return;
     }
 
@@ -585,18 +558,13 @@ function detectGeo() {
             await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
             showAddressMap(pos.coords.latitude, pos.coords.longitude, chosenName);
         },
-        (err) => {
-            statusDiv.textContent = '❌ Не удалось получить геолокацию. Разрешите доступ в браузере.';
-        },
+        () => { statusDiv.textContent = '❌ Не удалось получить геолокацию.'; },
         { timeout: 10000 }
     );
 }
 
 async function saveAddress() {
-    if (!chosenLat || !chosenLng) {
-        alert('Сначала выберите адрес на карте');
-        return;
-    }
+    if (!chosenLat || !chosenLng) { alert('Сначала выберите адрес на карте'); return; }
 
     const res = await fetch('/preferences/save-address', {
         method: 'POST',
@@ -606,13 +574,12 @@ async function saveAddress() {
 
     if (res.ok) {
         document.getElementById('addressSavedBadge').style.display = 'flex';
-        showNotification('Адрес сохранён! Теперь маршруты будут строиться от вашего дома 🏠');
+        showNotification('Адрес сохранён! Маршруты будут строиться от вашего дома 🏠');
     } else {
         showNotification('Ошибка при сохранении', 'error');
     }
 }
 
-// Поиск по Enter
 document.getElementById('addressInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') searchAddress();
 });

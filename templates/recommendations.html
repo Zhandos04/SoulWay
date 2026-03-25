@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Рекомендации - SoulWay{% endblock %}
+{% block title %}Рекомендации — SoulWay{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <div class="container recommendations-page">
     <h1>Персональные рекомендации</h1>
-    <p class="subtitle">Что вам подойдет прямо сейчас</p>
+    <p class="subtitle">Что подойдёт именно вам прямо сейчас</p>
 
     <div class="recommendation-settings">
         <h2>Настройки подбора</h2>
@@ -24,13 +25,26 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Бюджет на сегодня</label>
-                    <select name="budget" class="form-control" id="budgetSelect">
-                        <option value="free">Бесплатно</option>
-                        <option value="low">До 5 000 ₸</option>
-                        <option value="medium">5 000 – 20 000 ₸</option>
-                        <option value="high">20 000 ₸ и выше</option>
-                    </select>
+                    <label>Бюджет</label>
+                    <div class="budget-input-group">
+                        <select name="budget_preset" class="form-control" id="budgetSelect" onchange="onBudgetPresetChange()">
+                            <option value="free">Бесплатно</option>
+                            <option value="low">До 5 000 ₸</option>
+                            <option value="medium">5 000 – 20 000 ₸</option>
+                            <option value="high">20 000 ₸ и выше</option>
+                            <option value="custom">✏️ Ввести свой...</option>
+                        </select>
+                        <div id="customBudgetWrap" class="custom-budget-wrap" style="display:none;">
+                            <input
+                                type="text"
+                                id="customBudgetInput"
+                                name="budget_custom"
+                                class="form-control"
+                                placeholder="Например: 8000 ₸ или до 15 000 тенге"
+                                autocomplete="off"
+                            >
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -52,7 +66,6 @@
     </div>
 
     <div id="recommendationsResult" class="recommendations-result" style="display: none;">
-        <h2>Ваши рекомендации</h2>
         <div id="insight" class="insight-card"></div>
         <div id="recommendationsList" class="recommendations-list"></div>
     </div>
@@ -63,20 +76,260 @@
 </div>
 
 <style>
-.error-block {
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid var(--danger);
-    color: #fca5a5;
-    padding: 1.5rem;
-    border-radius: 12px;
-    margin-top: 2rem;
-    text-align: center;
+/* ── Бюджет ── */
+.budget-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
 }
 
-/* Карта маршрута */
+.custom-budget-wrap {
+    animation: fadeDown 0.2s ease;
+}
+
+@keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Ошибка ── */
+.error-block {
+    background: var(--danger-pale);
+    border: 1px solid #fca5a5;
+    color: var(--danger);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* ── Инсайт ── */
+.insight-card {
+    background: linear-gradient(135deg, var(--primary-pale), #f0edff);
+    border: 1px solid #c7c2f8;
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.75rem;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--text);
+}
+
+.insight-card strong {
+    color: var(--primary);
+}
+
+/* ── Карточка рекомендации ── */
+.rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+    position: relative;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
+}
+
+.rec-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
+}
+
+.rec-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.rec-number-badge {
+    min-width: 32px;
+    height: 32px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.rec-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin: 0;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.rec-type-badge {
+    display: inline-block;
+    background: var(--primary-pale);
+    color: var(--primary);
+    border: 1px solid #c7c2f8;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.rec-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.rec-info-block {
+    background: var(--surface-2);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.rec-info-block .label {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+
+.rec-info-block .value {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.4;
+}
+
+.rec-meta-row {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0.75rem 0;
+    flex-wrap: wrap;
+}
+
+.rec-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.rec-details {
+    background: var(--surface-2);
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    border: 1px solid var(--border);
+}
+
+/* ── Кино-блок ── */
+.cinema-block {
+    margin-top: 1rem;
+    background: linear-gradient(135deg, rgba(80,70,228,0.04), rgba(80,70,228,0.02));
+    border: 1px solid #c7c2f8;
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+}
+
+.cinema-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cinema-icon { font-size: 1.4rem; }
+
+.cinema-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.cinema-year {
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+}
+
+.cinema-meta {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.cinema-badge {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.cinema-rating {
+    background: var(--warning-pale);
+    color: var(--warning);
+    border-color: #fde68a;
+}
+
+.cinema-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.cinema-links {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.cinema-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    text-decoration: none;
+    transition: opacity 0.15s;
+    font-weight: 600;
+}
+
+.cinema-link:hover { opacity: 0.75; }
+
+.link-kinopoisk {
+    background: #fff4ef;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+
+.link-shodim {
+    background: var(--primary-pale);
+    color: var(--primary);
+    border: 1px solid #c7c2f8;
+}
+
+/* ── Карта ── */
 .map-section {
     margin-top: 1rem;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid var(--border);
 }
@@ -85,11 +338,12 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    background: var(--surface-light);
-    font-size: 0.9rem;
+    padding: 0.65rem 1rem;
+    background: var(--surface-2);
+    font-size: 0.85rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
 }
 
 .map-container {
@@ -99,10 +353,11 @@
 
 .map-stops {
     padding: 0.75rem 1rem;
-    background: var(--surface-light);
+    background: var(--surface-2);
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border);
 }
 
 .map-stop-item {
@@ -114,261 +369,53 @@
 }
 
 .stop-dot {
-    min-width: 20px;
-    height: 20px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    min-width: 22px;
+    height: 22px;
+    background: var(--primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.65rem;
-    font-weight: bold;
+    font-weight: 700;
     color: white;
     flex-shrink: 0;
     margin-top: 1px;
 }
 
-/* Кино-блок */
-.cinema-block {
-    margin-top: 1rem;
-    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08));
-    border: 1px solid rgba(99,102,241,0.25);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-}
-
-.cinema-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.cinema-icon {
-    font-size: 1.5rem;
-}
-
-.cinema-name {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.cinema-year {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-}
-
-.cinema-meta {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
-}
-
-.cinema-badge {
-    background: var(--surface-light);
-    padding: 0.2rem 0.6rem;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.cinema-rating {
-    background: rgba(245, 158, 11, 0.2);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.cinema-desc {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-    line-height: 1.6;
-}
-
-.cinema-links {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.cinema-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.9rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    text-decoration: none;
-    transition: opacity 0.2s;
-    font-weight: 500;
-}
-
-.cinema-link:hover { opacity: 0.8; }
-
-.link-kinopoisk {
-    background: rgba(255, 102, 0, 0.2);
-    color: #fb923c;
-    border: 1px solid rgba(255, 102, 0, 0.3);
-}
-
-.link-shodim {
-    background: rgba(99, 102, 241, 0.2);
-    color: #a5b4fc;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-}
-
-.rec-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.75rem;
-    margin-bottom: 1.5rem;
-    position: relative;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.rec-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
-}
-
-.rec-card-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.rec-number-badge {
-    min-width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
-.rec-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text);
-}
-
-.rec-type-badge {
-    display: inline-block;
-    background: rgba(139, 92, 246, 0.2);
-    color: #a78bfa;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    padding: 0.2rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    margin-bottom: 1rem;
-}
-
-.rec-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.rec-info-block {
-    background: var(--surface-light);
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-}
-
-.rec-info-block .label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-}
-
-.rec-info-block .value {
-    font-size: 0.95rem;
-    color: var(--text);
-}
-
-.rec-details {
-    background: var(--surface-light);
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.rec-meta-row {
-    display: flex;
-    gap: 1.5rem;
-    margin: 0.75rem 0;
-    flex-wrap: wrap;
-}
-
-.rec-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.insight-card {
-    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
-    border: 1px solid rgba(99,102,241,0.3);
-    padding: 1.5rem;
-    border-radius: 16px;
-    margin-bottom: 2rem;
-    font-size: 1.05rem;
-    line-height: 1.7;
-}
-
-.insight-card strong {
-    color: #a5b4fc;
-}
-
 @media (max-width: 600px) {
-    .rec-row {
-        grid-template-columns: 1fr;
-    }
+    .rec-row { grid-template-columns: 1fr; }
 }
 </style>
 
 <script>
-// Бюджеты по типу активности
 const budgetOptions = {
     any: [
-        { value: 'free', label: 'Бесплатно' },
-        { value: 'low', label: 'До 5 000 ₸' },
+        { value: 'free',   label: 'Бесплатно' },
+        { value: 'low',    label: 'До 5 000 ₸' },
         { value: 'medium', label: '5 000 – 20 000 ₸' },
-        { value: 'high', label: '20 000 ₸ и выше' },
+        { value: 'high',   label: '20 000 ₸ и выше' },
+        { value: 'custom', label: '✏️ Ввести свой...' },
     ],
     home: [
-        { value: 'free', label: 'Бесплатно' },
-        { value: 'low', label: 'До 3 000 ₸ (подписки, доставка)' },
+        { value: 'free',   label: 'Бесплатно' },
+        { value: 'low',    label: 'До 3 000 ₸ (подписки, доставка)' },
         { value: 'medium', label: '3 000 – 10 000 ₸' },
-        { value: 'high', label: '10 000 ₸ и выше' },
+        { value: 'high',   label: '10 000 ₸ и выше' },
+        { value: 'custom', label: '✏️ Ввести свой...' },
     ],
     city: [
-        { value: 'free', label: 'Бесплатно (парки, прогулки)' },
-        { value: 'low', label: 'До 5 000 ₸ (кафе, кино)' },
+        { value: 'free',   label: 'Бесплатно (парки, прогулки)' },
+        { value: 'low',    label: 'До 5 000 ₸ (кафе, кино)' },
         { value: 'medium', label: '5 000 – 25 000 ₸ (рестораны, мероприятия)' },
-        { value: 'high', label: '25 000 ₸ и выше (премиум досуг)' },
+        { value: 'high',   label: '25 000 ₸ и выше (премиум досуг)' },
+        { value: 'custom', label: '✏️ Ввести свой...' },
     ],
     travel: [
-        { value: 'low', label: 'До 50 000 ₸ (поездка в область)' },
+        { value: 'low',    label: 'До 50 000 ₸ (поездка в область)' },
         { value: 'medium', label: '50 000 – 200 000 ₸ (СНГ, туры)' },
-        { value: 'high', label: '200 000 ₸ и выше (заграница)' },
+        { value: 'high',   label: '200 000 ₸ и выше (заграница)' },
+        { value: 'custom', label: '✏️ Ввести свой...' },
     ],
 };
 
@@ -381,9 +428,31 @@ function updateBudgetOptions() {
     select.innerHTML = options.map(o =>
         `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.label}</option>`
     ).join('');
+
+    onBudgetPresetChange();
 }
 
-document.getElementById('recommendationForm').addEventListener('submit', async function (e) {
+function onBudgetPresetChange() {
+    const val = document.getElementById('budgetSelect').value;
+    const wrap = document.getElementById('customBudgetWrap');
+    if (val === 'custom') {
+        wrap.style.display = 'block';
+        document.getElementById('customBudgetInput').focus();
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+
+function getSelectedBudget() {
+    const preset = document.getElementById('budgetSelect').value;
+    if (preset === 'custom') {
+        const custom = document.getElementById('customBudgetInput').value.trim();
+        return custom || 'любой';
+    }
+    return preset;
+}
+
+document.getElementById('recommendationForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const btn = document.getElementById('submitBtn');
@@ -394,7 +463,7 @@ document.getElementById('recommendationForm').addEventListener('submit', async f
     const formData = new FormData(this);
     const data = {
         type: formData.get('type'),
-        budget: formData.get('budget'),
+        budget: getSelectedBudget(),
         context: formData.get('context')
     };
 
@@ -433,7 +502,6 @@ function showError(msg) {
     el.style.display = 'block';
 }
 
-// Храним инстансы карт чтобы не инициализировать повторно
 const mapInstances = {};
 
 function displayRecommendations(rawData) {
@@ -445,7 +513,7 @@ function displayRecommendations(rawData) {
             parsed = JSON.parse(cleaned);
         } catch (e) {
             document.getElementById('recommendationsList').innerHTML =
-                `<div class="rec-details" style="white-space: pre-wrap;">${rawData}</div>`;
+                `<div class="rec-details" style="white-space:pre-wrap;">${rawData}</div>`;
             document.getElementById('insight').innerHTML = '';
             document.getElementById('recommendationsResult').style.display = 'block';
             return;
@@ -459,8 +527,10 @@ function displayRecommendations(rawData) {
 
     if (parsed.overall_insight) {
         insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${escapeHtml(parsed.overall_insight)}</p>`;
+        insightDiv.style.display = 'block';
     } else {
         insightDiv.innerHTML = '';
+        insightDiv.style.display = 'none';
     }
 
     if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
@@ -471,7 +541,7 @@ function displayRecommendations(rawData) {
                     <h3 class="rec-title">${escapeHtml(rec.title || '')}</h3>
                 </div>
 
-                ${rec.type ? `<span class="rec-type-badge">🏷 ${escapeHtml(rec.type)}</span>` : ''}
+                ${rec.type ? `<span class="rec-type-badge">${escapeHtml(rec.type)}</span>` : ''}
 
                 <div class="rec-row">
                     <div class="rec-info-block">
@@ -486,7 +556,7 @@ function displayRecommendations(rawData) {
 
                 <div class="rec-meta-row">
                     ${rec.budget ? `<span class="rec-meta-item">💰 ${escapeHtml(rec.budget)}</span>` : ''}
-                    ${rec.duration ? `<span class="rec-meta-item">⏱️ ${escapeHtml(rec.duration)}</span>` : ''}
+                    ${rec.duration ? `<span class="rec-meta-item">⏱ ${escapeHtml(rec.duration)}</span>` : ''}
                 </div>
 
                 ${rec.details ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>` : ''}
@@ -496,7 +566,6 @@ function displayRecommendations(rawData) {
             </div>
         `).join('');
 
-        // Инициализируем карты после рендера DOM
         setTimeout(() => {
             parsed.recommendations.forEach((rec, index) => {
                 if (rec.map_points && rec.map_points.length > 0) {
@@ -505,10 +574,11 @@ function displayRecommendations(rawData) {
             });
         }, 100);
     } else {
-        listDiv.innerHTML = `<div class="rec-details" style="white-space: pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+        listDiv.innerHTML = `<div class="rec-details" style="white-space:pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
     }
 
     document.getElementById('recommendationsResult').style.display = 'block';
+    document.getElementById('recommendationsResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderCinemaBlock(info) {
@@ -523,10 +593,10 @@ function renderCinemaBlock(info) {
             <div class="cinema-meta">
                 ${info.genre ? `<span class="cinema-badge">🎭 ${escapeHtml(info.genre)}</span>` : ''}
                 ${info.rating_imdb ? `<span class="cinema-badge cinema-rating">⭐ IMDb ${escapeHtml(String(info.rating_imdb))}</span>` : ''}
-                ${info.duration_min ? `<span class="cinema-badge">⏱️ ${info.duration_min} мин</span>` : ''}
+                ${info.duration_min ? `<span class="cinema-badge">⏱ ${info.duration_min} мин</span>` : ''}
             </div>
             ${info.description ? `<p class="cinema-desc">${escapeHtml(info.description)}</p>` : ''}
-            ${info.why_fits ? `<p class="cinema-desc" style="color: #a5b4fc;">💡 ${escapeHtml(info.why_fits)}</p>` : ''}
+            ${info.why_fits ? `<p class="cinema-desc" style="color:var(--primary);">💡 ${escapeHtml(info.why_fits)}</p>` : ''}
             <div class="cinema-links">
                 ${info.kinopoisk_url ? `<a href="${escapeHtml(info.kinopoisk_url)}" target="_blank" class="cinema-link link-kinopoisk">🔶 Кинопоиск</a>` : ''}
                 ${info.shodim_url ? `<a href="${escapeHtml(info.shodim_url)}" target="_blank" class="cinema-link link-shodim">🎞 Shodim.kz</a>` : ''}
@@ -542,21 +612,20 @@ function renderMapBlock(points, recIndex) {
         const isHome = p.order === 0 || (p.name && p.name.includes('🏠'));
         return `
         <div class="map-stop-item">
-            <div class="stop-dot" style="${isHome ? 'background: linear-gradient(135deg,#10b981,#059669);' : ''}">
+            <div class="stop-dot" style="${isHome ? 'background:#16a34a;' : ''}">
                 ${isHome ? '🏠' : (p.order || i + 1)}
             </div>
             <div>
-                <strong>${escapeHtml(p.name || '')}</strong>
+                <strong style="color:var(--text);">${escapeHtml(p.name || '')}</strong>
                 ${p.address && !isHome ? ` — <span>${escapeHtml(p.address)}</span>` : ''}
-                ${p.tip ? `<br><span style="font-size:0.8rem; color: #a5b4fc;">💡 ${escapeHtml(p.tip)}</span>` : ''}
-                ${isHome ? `<br><span style="font-size:0.78rem; color: #34d399;">Начало маршрута</span>` : ''}
+                ${p.tip ? `<br><span style="font-size:0.8rem;color:var(--primary);">💡 ${escapeHtml(p.tip)}</span>` : ''}
             </div>
-        </div>
-    `}).join('');
+        </div>`;
+    }).join('');
 
     return `
         <div class="map-section">
-            <div class="map-header">🗺️ Маршрут (${points.length} точек)</div>
+            <div class="map-header">🗺️ Маршрут · ${points.length} точек</div>
             <div class="map-container" id="map-${recIndex}"></div>
             <div class="map-stops">${stopsHtml}</div>
         </div>
@@ -574,8 +643,7 @@ function initMap(points, recIndex) {
     mapInstances[mapId] = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 18
+        attribution: '© OpenStreetMap', maxZoom: 18
     }).addTo(map);
 
     const latlngs = [];
@@ -583,30 +651,15 @@ function initMap(points, recIndex) {
     validPoints.forEach((point, i) => {
         const latlng = [point.lat, point.lng];
         latlngs.push(latlng);
-
         const isHome = point.order === 0 || (point.name && point.name.includes('🏠'));
 
         const icon = L.divIcon({
             className: '',
             html: isHome
-                ? `<div style="
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    color: white; width: 34px; height: 34px;
-                    border-radius: 50%; display: flex; align-items: center;
-                    justify-content: center; font-size: 16px;
-                    border: 3px solid white;
-                    box-shadow: 0 2px 10px rgba(16,185,129,0.6);
-                  ">🏠</div>`
-                : `<div style="
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    color: white; width: 28px; height: 28px;
-                    border-radius: 50%; display: flex; align-items: center;
-                    justify-content: center; font-size: 12px; font-weight: bold;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                  ">${point.order || i + 1}</div>`,
-            iconSize: isHome ? [34, 34] : [28, 28],
-            iconAnchor: isHome ? [17, 17] : [14, 14]
+                ? `<div style="background:#16a34a;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2.5px solid white;box-shadow:0 2px 8px rgba(22,163,74,0.4);">🏠</div>`
+                : `<div style="background:#5046e4;color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 6px rgba(80,70,228,0.4);">${point.order || i + 1}</div>`,
+            iconSize: isHome ? [32, 32] : [26, 26],
+            iconAnchor: isHome ? [16, 16] : [13, 13]
         });
 
         const marker = L.marker(latlng, { icon }).addTo(map);
@@ -615,12 +668,8 @@ function initMap(points, recIndex) {
         }
     });
 
-    // Линия маршрута
     if (latlngs.length > 1) {
-        L.polyline(latlngs, {
-            color: '#6366f1', weight: 3,
-            opacity: 0.8, dashArray: '8, 6'
-        }).addTo(map);
+        L.polyline(latlngs, { color: '#5046e4', weight: 2.5, opacity: 0.7, dashArray: '8, 5' }).addTo(map);
     }
 
     if (latlngs.length === 1) {
