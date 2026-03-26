@@ -92,6 +92,28 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Кнопка ссылки на событие ── */
+.event-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.85rem;
+    padding: 0.5rem 1.1rem;
+    background: linear-gradient(135deg, #5046e4, #7c6fef);
+    color: white;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.15s;
+    box-shadow: 0 2px 8px rgba(80,70,228,0.25);
+}
+
+.event-link-btn:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
 /* ── Ошибка ── */
 .error-block {
     background: var(--danger-pale);
@@ -463,6 +485,7 @@ document.getElementById('recommendationForm').addEventListener('submit', async f
     const formData = new FormData(this);
     const data = {
         type: formData.get('type'),
+        city: 'Almaty',
         budget: getSelectedBudget(),
         context: formData.get('context')
     };
@@ -560,6 +583,11 @@ function displayRecommendations(rawData) {
                 </div>
 
                 ${rec.details ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>` : ''}
+
+                ${rec.event_link ? `
+                <a href="${escapeHtml(rec.event_link)}" target="_blank" class="event-link-btn">
+                    🎟 Подробнее и билеты
+                </a>` : ''}
 
                 ${renderCinemaBlock(rec.cinema_info)}
                 ${renderMapBlock(rec.map_points, index)}

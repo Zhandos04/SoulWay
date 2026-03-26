@@ -10,6 +10,7 @@ import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
 from flasgger import Swagger
+import requests as http_requests
 
 load_dotenv()
 
@@ -46,6 +47,39 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 DATABASE_URL = os.getenv('DATABASE_URL')
+
+EVENT_FETCHER_URL = os.getenv('EVENT_FETCHER_URL', 'https://event-fetcher-d058.onrender.com')
+
+
+def fetch_city_events(city: str) -> dict:
+    """
+    Получить реальные события и фильмы по городу через event-fetcher API.
+    Возвращает словарь с ключами 'events' и 'movies'.
+    """
+    result = {'events': [], 'movies': []}
+    try:
+        events_resp = http_requests.get(
+            f'{EVENT_FETCHER_URL}/events/filter',
+            params={'city': city, 'type': 'EVENT'},
+            timeout=10
+        )
+        if events_resp.ok:
+            result['events'] = events_resp.json()
+    except Exception as e:
+        print(f'[event-fetcher] events error: {e}')
+
+    try:
+        movies_resp = http_requests.get(
+            f'{EVENT_FETCHER_URL}/events/filter',
+            params={'city': city, 'type': 'MOVIE'},
+            timeout=10
+        )
+        if movies_resp.ok:
+            result['movies'] = movies_resp.json()
+    except Exception as e:
+        print(f'[event-fetcher] movies error: {e}')
+
+    return result
 
 
 def get_db():
@@ -598,7 +632,44 @@ def get_recommendations():
 
     activity_type = data.get('type', 'any')
     home_address = prefs.get('home_address')
-    
+
+    # --- Получаем реальные события из event-fetcher API ---
+    city = data.get('city', prefs.get('city', 'Almaty'))
+    real_events_instruction = ""
+    if activity_type in ['any', 'city']:
+        city_data = fetch_city_events(city)
+        events = city_data['events'][:10]   # не более 10 событий
+        movies = city_data['movies'][:10]   # не более 10 фильмов
+
+        if events:
+            events_json = json.dumps(
+                [{'title': e.get('title'), 'category': e.get('category'),
+                  'description': e.get('description'), 'link': e.get('link')}
+                 for e in events],
+                ensure_ascii=False, indent=2
+            )
+            real_events_instruction += f"""
+    РЕАЛЬНЫЕ СОБЫТИЯ В ГОРОДЕ {city} (актуальные данные от sxodim/kino.kz):
+    {events_json}
+    ВАЖНО: При рекомендации мероприятия из этого списка — используй его реальное название,
+    описание и ссылку. Добавь поле "event_link" с url из данных выше.
+    """
+
+        if movies:
+            movies_json = json.dumps(
+                [{'title': e.get('title'), 'genre': e.get('genre'),
+                  'rating': e.get('rating'), 'description': e.get('description'),
+                  'link': e.get('link')}
+                 for e in movies],
+                ensure_ascii=False, indent=2
+            )
+            real_events_instruction += f"""
+    РЕАЛЬНЫЕ ФИЛЬМЫ В ПРОКАТЕ В {city}:
+    {movies_json}
+    ВАЖНО: При рекомендации кино из этого списка — используй реальные данные выше.
+    Добавь поле "cinema_info" с полем "shodim_url" = ссылка из данных.
+    """
+
     home_addr_instruction = ""
     if home_address and home_address.get('lat'):
         home_addr_instruction = f"""
@@ -606,11 +677,11 @@ def get_recommendations():
     Название: {home_address.get('name', '')}
     Координаты: lat={home_address.get('lat')}, lng={home_address.get('lng')}
     """
-    
+
     # Формируем инструкции для кино и карты в зависимости от типа
     cinema_instruction = ""
     map_instruction = ""
-    
+
     if activity_type in ['any', 'city']:
         cinema_instruction = """
     ВАЖНО: Если рекомендуешь кино или сериал, обязательно добавь поле "cinema_info" со структурой:
@@ -626,7 +697,7 @@ def get_recommendations():
         "description": "краткое описание",
         "why_fits": "почему подходит пользователю"
     }
-    Используй реальные популярные фильмы и сериалы, доступные на shodim.kz (казахстанский стриминг).
+    Приоритет — фильмы из списка реальных фильмов выше (если они есть).
     """
 
     if activity_type in ['city', 'travel']:
@@ -659,9 +730,11 @@ def get_recommendations():
     
     {context}
     {home_addr_instruction}
+    {real_events_instruction}
     
     На основе эмоционального состояния, предпочтений и контекста пользователя,
     подбери 5-7 персонализированных рекомендаций для досуга.
+    Если есть подходящие реальные события или фильмы выше — включи их в рекомендации.
     
     {cinema_instruction}
     {map_instruction}
@@ -677,6 +750,7 @@ def get_recommendations():
                 "budget": "бюджет",
                 "duration": "продолжительность",
                 "details": "детали и конкретные советы",
+                "event_link": null,
                 "cinema_info": null,
                 "map_points": null
             }}
