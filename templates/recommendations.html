@@ -16,10 +16,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Тип активности</label>
-                    <select name="type" class="form-control" id="activityType" onchange="updateBudgetOptions()">
+                    <select name="type" class="form-control" id="activityType" onchange="updateBudgetOptions(); toggleCityField();">
                         <option value="any">Любой</option>
                         <option value="home">Дома</option>
                         <option value="city">В городе</option>
+                        <option value="fitness">🏃 Фитнес</option>
                         <option value="travel">Путешествие</option>
                     </select>
                 </div>
@@ -35,16 +36,32 @@
                             <option value="custom">✏️ Ввести свой...</option>
                         </select>
                         <div id="customBudgetWrap" class="custom-budget-wrap" style="display:none;">
-                            <input
-                                type="text"
-                                id="customBudgetInput"
-                                name="budget_custom"
-                                class="form-control"
-                                placeholder="Например: 8000 ₸ или до 15 000 тенге"
-                                autocomplete="off"
-                            >
+                            <input type="text" id="customBudgetInput" name="budget_custom"
+                                class="form-control" placeholder="Например: 8000 ₸ или до 15 000 тенге" autocomplete="off">
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Выбор города — показывается для any/city/fitness -->
+            <div class="form-group" id="cityFieldWrap">
+                <label>🌆 Город</label>
+                <select name="city_preset" class="form-control" id="citySelect" onchange="onCityPresetChange()">
+                    <option value="Алматы">Алматы</option>
+                    <option value="Астана">Астана</option>
+                    <option value="Шымкент">Шымкент</option>
+                    <option value="Актобе">Актобе</option>
+                    <option value="Атырау">Атырау</option>
+                    <option value="Павлодар">Павлодар</option>
+                    <option value="Усть-Каменогорск">Усть-Каменогорск</option>
+                    <option value="Семей">Семей</option>
+                    <option value="Тараз">Тараз</option>
+                    <option value="Костанай">Костанай</option>
+                    <option value="custom">✏️ Другой город...</option>
+                </select>
+                <div id="customCityWrap" style="display:none; margin-top:0.6rem;">
+                    <input type="text" id="customCityInput" class="form-control"
+                        placeholder="Введите название города" autocomplete="off">
                 </div>
             </div>
 
@@ -60,14 +77,22 @@
         </form>
     </div>
 
+    <!-- Лоадер -->
     <div id="loading" class="loading" style="display: none;">
         <div class="spinner"></div>
-        <p>Анализируем ваше состояние и подбираем активности...</p>
+        <p id="loadingText">Анализируем ваше состояние...</p>
     </div>
 
+    <!-- Результаты — появляются поэтапно -->
     <div id="recommendationsResult" class="recommendations-result" style="display: none;">
         <div id="insight" class="insight-card"></div>
         <div id="recommendationsList" class="recommendations-list"></div>
+        <div id="detailsLoader" style="display:none; text-align:center; padding:1.5rem 0;">
+            <div style="display:inline-flex; align-items:center; gap:0.75rem; color:var(--text-secondary); font-size:0.9rem;">
+                <div class="spinner-sm"></div>
+                <span>Загружаем детали, кино и маршруты...</span>
+            </div>
+        </div>
     </div>
 
     <div id="errorResult" class="error-block" style="display: none;">
@@ -76,368 +101,203 @@
 </div>
 
 <style>
-/* ── Бюджет ── */
-.budget-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-}
+.budget-input-group { display: flex; flex-direction: column; gap: 0.6rem; }
+.custom-budget-wrap { animation: fadeDown 0.2s ease; }
+@keyframes fadeDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
 
-.custom-budget-wrap {
-    animation: fadeDown 0.2s ease;
+.spinner-sm {
+    width:18px; height:18px; border:2.5px solid var(--border);
+    border-top-color:var(--primary); border-radius:50%;
+    animation:spin 0.7s linear infinite; flex-shrink:0;
 }
+@keyframes spin { to{transform:rotate(360deg)} }
 
-@keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Кнопка ссылки на событие ── */
 .event-link-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.85rem;
-    padding: 0.5rem 1.1rem;
-    background: linear-gradient(135deg, #5046e4, #7c6fef);
-    color: white;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: opacity 0.15s, transform 0.15s;
-    box-shadow: 0 2px 8px rgba(80,70,228,0.25);
+    display:inline-flex; align-items:center; gap:0.4rem;
+    margin-top:0.85rem; padding:0.5rem 1.1rem;
+    background:linear-gradient(135deg,#5046e4,#7c6fef);
+    color:white; border-radius:var(--radius-sm);
+    font-size:0.85rem; font-weight:600; text-decoration:none;
+    transition:opacity 0.15s,transform 0.15s;
+    box-shadow:0 2px 8px rgba(80,70,228,0.25);
 }
+.event-link-btn:hover { opacity:0.88; transform:translateY(-1px); }
 
-.event-link-btn:hover {
-    opacity: 0.88;
-    transform: translateY(-1px);
-}
-
-/* ── Ошибка ── */
 .error-block {
-    background: var(--danger-pale);
-    border: 1px solid #fca5a5;
-    color: var(--danger);
-    padding: 1.5rem;
-    border-radius: var(--radius-md);
-    margin-top: 2rem;
-    text-align: center;
-    font-size: 0.9rem;
+    background:var(--danger-pale); border:1px solid #fca5a5;
+    color:var(--danger); padding:1.5rem; border-radius:var(--radius-md);
+    margin-top:2rem; text-align:center; font-size:0.9rem;
 }
 
-/* ── Инсайт ── */
 .insight-card {
-    background: linear-gradient(135deg, var(--primary-pale), #f0edff);
-    border: 1px solid #c7c2f8;
-    padding: 1.5rem;
-    border-radius: var(--radius-lg);
-    margin-bottom: 1.75rem;
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--text);
+    background:linear-gradient(135deg,var(--primary-pale),#f0edff);
+    border:1px solid #c7c2f8; padding:1.5rem;
+    border-radius:var(--radius-lg); margin-bottom:1.75rem;
+    font-size:1rem; line-height:1.75; color:var(--text);
 }
+.insight-card strong { color:var(--primary); }
 
-.insight-card strong {
-    color: var(--primary);
-}
-
-/* ── Карточка рекомендации ── */
 .rec-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1.75rem;
-    margin-bottom: 1.25rem;
-    position: relative;
-    transition: all 0.2s;
-    box-shadow: var(--shadow-sm);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-lg); padding:1.75rem;
+    margin-bottom:1.25rem; transition:all 0.2s; box-shadow:var(--shadow-sm);
 }
+.rec-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--border-strong); }
 
-.rec-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--border-strong);
-}
-
-.rec-card-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
+.rec-card-header { display:flex; align-items:flex-start; gap:1rem; margin-bottom:1rem; }
 .rec-number-badge {
-    min-width: 32px;
-    height: 32px;
-    background: var(--primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.85rem;
-    flex-shrink: 0;
+    min-width:32px; height:32px; background:var(--primary); color:white;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:0.85rem; flex-shrink:0;
 }
-
 .rec-title {
-    font-family: 'Instrument Serif', serif;
-    font-size: 1.2rem;
-    font-weight: 400;
-    margin: 0;
-    color: var(--text);
-    line-height: 1.3;
+    font-family:'Instrument Serif',serif; font-size:1.2rem;
+    font-weight:400; margin:0; color:var(--text); line-height:1.3;
 }
-
 .rec-type-badge {
-    display: inline-block;
-    background: var(--primary-pale);
-    color: var(--primary);
-    border: 1px solid #c7c2f8;
-    padding: 0.2rem 0.7rem;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    letter-spacing: 0.02em;
+    display:inline-block; background:var(--primary-pale); color:var(--primary);
+    border:1px solid #c7c2f8; padding:0.2rem 0.7rem;
+    border-radius:20px; font-size:0.78rem; font-weight:600;
+    margin-bottom:1rem; letter-spacing:0.02em;
 }
+.rec-type-badge.fitness-badge { background:#f0fdf4; color:#16a34a; border-color:#86efac; }
 
-.rec-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
+.rec-row { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem; }
 .rec-info-block {
-    background: var(--surface-2);
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    background:var(--surface-2); padding:0.75rem 1rem;
+    border-radius:var(--radius-sm); border:1px solid var(--border);
 }
-
 .rec-info-block .label {
-    font-size: 0.72rem;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 0.3rem;
-    font-weight: 600;
+    font-size:0.72rem; color:var(--text-tertiary);
+    text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.3rem; font-weight:600;
 }
+.rec-info-block .value { font-size:0.88rem; color:var(--text); line-height:1.4; }
 
-.rec-info-block .value {
-    font-size: 0.88rem;
-    color: var(--text);
-    line-height: 1.4;
-}
-
-.rec-meta-row {
-    display: flex;
-    gap: 1.25rem;
-    margin: 0.75rem 0;
-    flex-wrap: wrap;
-}
-
-.rec-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
+.rec-meta-row { display:flex; gap:1.25rem; margin:0.75rem 0; flex-wrap:wrap; }
+.rec-meta-item { display:flex; align-items:center; gap:0.35rem; color:var(--text-secondary); font-size:0.875rem; }
 
 .rec-details {
-    background: var(--surface-2);
-    padding: 0.85rem 1rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    line-height: 1.65;
-    border: 1px solid var(--border);
+    background:var(--surface-2); padding:0.85rem 1rem;
+    border-radius:var(--radius-sm); font-size:0.875rem;
+    color:var(--text-secondary); line-height:1.65; border:1px solid var(--border);
 }
 
-/* ── Кино-блок ── */
+/* Shimmer плейсхолдер пока грузятся детали */
+.detail-placeholder {
+    height:60px; border-radius:var(--radius-sm); border:1px solid var(--border);
+    margin-top:0.75rem;
+    background:linear-gradient(90deg,var(--surface-2) 0%,var(--surface-3) 50%,var(--surface-2) 100%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s ease infinite;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* Фитнес блок */
+.fitness-block {
+    margin-top:1rem;
+    background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+    border:1px solid #86efac; border-radius:var(--radius-md); padding:1rem 1.25rem;
+}
+.fitness-title-row { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+.fitness-icon { font-size:1.4rem; }
+.fitness-name { font-size:1rem; font-weight:600; color:var(--text); }
+.fitness-meta { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+.fitness-badge { background:white; border:1px solid #86efac; padding:0.2rem 0.6rem; border-radius:6px; font-size:0.78rem; color:#16a34a; }
+.fitness-why { font-size:0.875rem; color:#15803d; line-height:1.6; font-style:italic; }
+
+/* Кино блок */
 .cinema-block {
-    margin-top: 1rem;
-    background: linear-gradient(135deg, rgba(80,70,228,0.04), rgba(80,70,228,0.02));
-    border: 1px solid #c7c2f8;
-    border-radius: var(--radius-md);
-    padding: 1rem 1.25rem;
+    margin-top:1rem;
+    background:linear-gradient(135deg,rgba(80,70,228,0.04),rgba(80,70,228,0.02));
+    border:1px solid #c7c2f8; border-radius:var(--radius-md); padding:1rem 1.25rem;
 }
-
-.cinema-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.cinema-icon { font-size: 1.4rem; }
-
-.cinema-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.cinema-year {
-    color: var(--text-tertiary);
-    font-size: 0.85rem;
-}
-
-.cinema-meta {
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
-}
-
-.cinema-badge {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    padding: 0.2rem 0.6rem;
-    border-radius: 6px;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-}
-
-.cinema-rating {
-    background: var(--warning-pale);
-    color: var(--warning);
-    border-color: #fde68a;
-}
-
-.cinema-desc {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-    line-height: 1.6;
-}
-
-.cinema-links {
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-}
-
+.cinema-title-row { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+.cinema-icon { font-size:1.4rem; }
+.cinema-name { font-size:1rem; font-weight:600; color:var(--text); }
+.cinema-year { color:var(--text-tertiary); font-size:0.85rem; }
+.cinema-meta { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+.cinema-badge { background:var(--surface-2); border:1px solid var(--border); padding:0.2rem 0.6rem; border-radius:6px; font-size:0.78rem; color:var(--text-secondary); }
+.cinema-rating { background:var(--warning-pale); color:var(--warning); border-color:#fde68a; }
+.cinema-desc { font-size:0.875rem; color:var(--text-secondary); margin-bottom:0.75rem; line-height:1.6; }
+.cinema-links { display:flex; gap:0.6rem; flex-wrap:wrap; }
 .cinema-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.85rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.82rem;
-    text-decoration: none;
-    transition: opacity 0.15s;
-    font-weight: 600;
+    display:inline-flex; align-items:center; gap:0.35rem;
+    padding:0.4rem 0.85rem; border-radius:var(--radius-sm);
+    font-size:0.82rem; text-decoration:none; transition:opacity 0.15s; font-weight:600;
 }
+.cinema-link:hover { opacity:0.75; }
+.link-kinopoisk { background:#fff4ef; color:#c2410c; border:1px solid #fed7aa; }
+.link-shodim { background:var(--primary-pale); color:var(--primary); border:1px solid #c7c2f8; }
 
-.cinema-link:hover { opacity: 0.75; }
-
-.link-kinopoisk {
-    background: #fff4ef;
-    color: #c2410c;
-    border: 1px solid #fed7aa;
-}
-
-.link-shodim {
-    background: var(--primary-pale);
-    color: var(--primary);
-    border: 1px solid #c7c2f8;
-}
-
-/* ── Карта ── */
-.map-section {
-    margin-top: 1rem;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    border: 1px solid var(--border);
-}
-
+/* Карта */
+.map-section { margin-top:1rem; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border); }
 .map-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem;
-    background: var(--surface-2);
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; gap:0.5rem; padding:0.65rem 1rem;
+    background:var(--surface-2); font-size:0.85rem; color:var(--text-secondary);
+    font-weight:600; border-bottom:1px solid var(--border);
 }
-
-.map-container {
-    height: 280px;
-    width: 100%;
-}
-
-.map-stops {
-    padding: 0.75rem 1rem;
-    background: var(--surface-2);
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    border-top: 1px solid var(--border);
-}
-
-.map-stop-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
+.map-container { height:280px; width:100%; }
+.map-stops { padding:0.75rem 1rem; background:var(--surface-2); display:flex; flex-direction:column; gap:0.5rem; border-top:1px solid var(--border); }
+.map-stop-item { display:flex; align-items:flex-start; gap:0.6rem; font-size:0.85rem; color:var(--text-secondary); }
 .stop-dot {
-    min-width: 22px;
-    height: 22px;
-    background: var(--primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: white;
-    flex-shrink: 0;
-    margin-top: 1px;
+    min-width:22px; height:22px; background:var(--primary); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.65rem; font-weight:700; color:white; flex-shrink:0; margin-top:1px;
 }
 
+/* ── МОБИЛЬНАЯ АДАПТАЦИЯ ── */
 @media (max-width: 600px) {
     .rec-row { grid-template-columns: 1fr; }
+    .rec-card { padding: 1.1rem; border-radius: var(--radius-md); }
+    .rec-title { font-size: 1.05rem; }
+    .rec-number-badge { min-width: 28px; height: 28px; font-size: 0.8rem; }
+    .map-container { height: 200px; }
+    .cinema-links { flex-direction: column; }
+    .cinema-link { justify-content: center; text-align: center; }
+    .fitness-meta { gap: 0.4rem; }
+    .form-row { grid-template-columns: 1fr !important; }
+    .insight-card { padding: 1rem; font-size: 0.9rem; }
+    .rec-meta-row { gap: 0.75rem; }
+    .recommendation-settings { padding: 1.25rem; }
+    .recommendation-settings h2 { font-size: 1.1rem; }
 }
 </style>
 
 <script>
 const budgetOptions = {
     any: [
-        { value: 'free',   label: 'Бесплатно' },
-        { value: 'low',    label: 'До 5 000 ₸' },
-        { value: 'medium', label: '5 000 – 20 000 ₸' },
-        { value: 'high',   label: '20 000 ₸ и выше' },
-        { value: 'custom', label: '✏️ Ввести свой...' },
+        {value:'free',label:'Бесплатно'},
+        {value:'low',label:'До 5 000 ₸'},
+        {value:'medium',label:'5 000 – 20 000 ₸'},
+        {value:'high',label:'20 000 ₸ и выше'},
+        {value:'custom',label:'✏️ Ввести свой...'},
     ],
     home: [
-        { value: 'free',   label: 'Бесплатно' },
-        { value: 'low',    label: 'До 3 000 ₸ (подписки, доставка)' },
-        { value: 'medium', label: '3 000 – 10 000 ₸' },
-        { value: 'high',   label: '10 000 ₸ и выше' },
-        { value: 'custom', label: '✏️ Ввести свой...' },
+        {value:'free',label:'Бесплатно'},
+        {value:'low',label:'До 3 000 ₸ (подписки, доставка)'},
+        {value:'medium',label:'3 000 – 10 000 ₸'},
+        {value:'high',label:'10 000 ₸ и выше'},
+        {value:'custom',label:'✏️ Ввести свой...'},
     ],
     city: [
-        { value: 'free',   label: 'Бесплатно (парки, прогулки)' },
-        { value: 'low',    label: 'До 5 000 ₸ (кафе, кино)' },
-        { value: 'medium', label: '5 000 – 25 000 ₸ (рестораны, мероприятия)' },
-        { value: 'high',   label: '25 000 ₸ и выше (премиум досуг)' },
-        { value: 'custom', label: '✏️ Ввести свой...' },
+        {value:'free',label:'Бесплатно (парки, прогулки)'},
+        {value:'low',label:'До 5 000 ₸ (кафе, кино)'},
+        {value:'medium',label:'5 000 – 25 000 ₸ (рестораны, мероприятия)'},
+        {value:'high',label:'25 000 ₸ и выше (премиум досуг)'},
+        {value:'custom',label:'✏️ Ввести свой...'},
+    ],
+    fitness: [
+        {value:'free',label:'Бесплатно (парк, дома)'},
+        {value:'low',label:'До 3 000 ₸ (разовое посещение)'},
+        {value:'medium',label:'3 000 – 15 000 ₸ (абонемент)'},
+        {value:'high',label:'15 000 ₸ и выше (персональный тренер)'},
+        {value:'custom',label:'✏️ Ввести свой...'},
     ],
     travel: [
-        { value: 'low',    label: 'До 50 000 ₸ (поездка в область)' },
-        { value: 'medium', label: '50 000 – 200 000 ₸ (СНГ, туры)' },
-        { value: 'high',   label: '200 000 ₸ и выше (заграница)' },
-        { value: 'custom', label: '✏️ Ввести свой...' },
+        {value:'low',label:'До 50 000 ₸ (поездка в область)'},
+        {value:'medium',label:'50 000 – 200 000 ₸ (СНГ, туры)'},
+        {value:'high',label:'200 000 ₸ и выше (заграница)'},
+        {value:'custom',label:'✏️ Ввести свой...'},
     ],
 };
 
@@ -446,274 +306,318 @@ function updateBudgetOptions() {
     const select = document.getElementById('budgetSelect');
     const current = select.value;
     const options = budgetOptions[type] || budgetOptions.any;
-
     select.innerHTML = options.map(o =>
-        `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.label}</option>`
+        `<option value="${o.value}" ${o.value===current?'selected':''}>${o.label}</option>`
     ).join('');
-
     onBudgetPresetChange();
 }
 
 function onBudgetPresetChange() {
     const val = document.getElementById('budgetSelect').value;
     const wrap = document.getElementById('customBudgetWrap');
-    if (val === 'custom') {
-        wrap.style.display = 'block';
-        document.getElementById('customBudgetInput').focus();
-    } else {
-        wrap.style.display = 'none';
-    }
+    if (val === 'custom') { wrap.style.display='block'; document.getElementById('customBudgetInput').focus(); }
+    else { wrap.style.display='none'; }
+}
+
+function toggleCityField() {
+    const type = document.getElementById('activityType').value;
+    const wrap = document.getElementById('cityFieldWrap');
+    wrap.style.display = (type === 'home' || type === 'travel') ? 'none' : '';
+}
+
+function onCityPresetChange() {
+    const val = document.getElementById('citySelect').value;
+    const wrap = document.getElementById('customCityWrap');
+    if (val === 'custom') { wrap.style.display='block'; document.getElementById('customCityInput').focus(); }
+    else { wrap.style.display='none'; }
 }
 
 function getSelectedBudget() {
     const preset = document.getElementById('budgetSelect').value;
-    if (preset === 'custom') {
-        const custom = document.getElementById('customBudgetInput').value.trim();
-        return custom || 'любой';
-    }
+    if (preset === 'custom') return document.getElementById('customBudgetInput').value.trim() || 'любой';
     return preset;
 }
 
+function getSelectedCity() {
+    const cityWrap = document.getElementById('cityFieldWrap');
+    if (cityWrap.style.display === 'none') return 'Алматы';
+    const preset = document.getElementById('citySelect').value;
+    if (preset === 'custom') return document.getElementById('customCityInput').value.trim() || 'Алматы';
+    return preset;
+}
+
+// ══ ДВУХЭТАПНЫЙ ЗАПРОС ══
 document.getElementById('recommendationForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Анализируем...';
-    btn.style.opacity = '0.7';
+    btn.disabled = true; btn.textContent = '⏳ Анализируем...'; btn.style.opacity = '0.7';
 
     const formData = new FormData(this);
-    const data = {
+    const reqData = {
         type: formData.get('type'),
-        city: 'Almaty',
+        city: getSelectedCity(),
         budget: getSelectedBudget(),
         context: formData.get('context')
     };
 
     document.getElementById('loading').style.display = 'block';
+    document.getElementById('loadingText').textContent = 'Анализируем ваше состояние...';
     document.getElementById('recommendationsResult').style.display = 'none';
     document.getElementById('errorResult').style.display = 'none';
 
     try {
-        const response = await fetch('/recommendations/get', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+        // — Шаг 1: быстрый ответ (~3–5 сек) —
+        const quickResp = await fetch('/recommendations/get', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(reqData)
         });
-
-        const result = await response.json();
+        const quickResult = await quickResp.json();
         document.getElementById('loading').style.display = 'none';
 
-        if (result.success) {
-            displayRecommendations(result.recommendations);
-        } else {
-            showError(result.error || 'Неизвестная ошибка');
+        if (!quickResult.success) { showError(quickResult.error || 'Неизвестная ошибка'); return; }
+
+        displayRecommendations(quickResult.recommendations, true);
+        document.getElementById('recommendationsResult').style.display = 'block';
+        document.getElementById('recommendationsResult').scrollIntoView({behavior:'smooth',block:'start'});
+
+        // — Шаг 2: детальный запрос в фоне (события, карта, фитнес) —
+        if (reqData.type !== 'home') {
+            document.getElementById('detailsLoader').style.display = 'block';
+            try {
+                const detailResp = await fetch('/recommendations/details', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify(reqData)
+                });
+                const detailResult = await detailResp.json();
+                document.getElementById('detailsLoader').style.display = 'none';
+                if (detailResult.success) mergeDetails(detailResult.recommendations);
+            } catch(detailErr) {
+                document.getElementById('detailsLoader').style.display = 'none';
+                // Не показываем ошибку — быстрый ответ уже показан
+            }
         }
-    } catch (err) {
+    } catch(err) {
         document.getElementById('loading').style.display = 'none';
         showError('Ошибка соединения: ' + err.message);
     } finally {
-        btn.disabled = false;
-        btn.textContent = '✨ Получить рекомендации';
-        btn.style.opacity = '1';
+        btn.disabled=false; btn.textContent='✨ Получить рекомендации'; btn.style.opacity='1';
     }
 });
 
 function showError(msg) {
-    const el = document.getElementById('errorResult');
     document.getElementById('errorText').textContent = msg;
-    el.style.display = 'block';
+    document.getElementById('errorResult').style.display = 'block';
 }
 
 const mapInstances = {};
 
-function displayRecommendations(rawData) {
-    let parsed;
-
+function parseRec(rawData) {
     if (typeof rawData === 'string') {
-        try {
-            const cleaned = rawData.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-            parsed = JSON.parse(cleaned);
-        } catch (e) {
-            document.getElementById('recommendationsList').innerHTML =
-                `<div class="rec-details" style="white-space:pre-wrap;">${rawData}</div>`;
-            document.getElementById('insight').innerHTML = '';
-            document.getElementById('recommendationsResult').style.display = 'block';
-            return;
-        }
-    } else {
-        parsed = rawData;
+        try { return JSON.parse(rawData.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim()); }
+        catch(e) { return null; }
+    }
+    return rawData;
+}
+
+function displayRecommendations(rawData, isQuick) {
+    const parsed = parseRec(rawData);
+    if (!parsed) {
+        document.getElementById('recommendationsList').innerHTML =
+            `<div class="rec-details" style="white-space:pre-wrap;">${rawData}</div>`;
+        document.getElementById('insight').style.display = 'none';
+        return;
     }
 
     const insightDiv = document.getElementById('insight');
-    const listDiv = document.getElementById('recommendationsList');
-
     if (parsed.overall_insight) {
         insightDiv.innerHTML = `<p><strong>💭 Инсайт:</strong> ${escapeHtml(parsed.overall_insight)}</p>`;
         insightDiv.style.display = 'block';
     } else {
-        insightDiv.innerHTML = '';
         insightDiv.style.display = 'none';
     }
 
     if (parsed.recommendations && Array.isArray(parsed.recommendations)) {
-        listDiv.innerHTML = parsed.recommendations.map((rec, index) => `
-            <div class="rec-card">
-                <div class="rec-card-header">
-                    <div class="rec-number-badge">${index + 1}</div>
-                    <h3 class="rec-title">${escapeHtml(rec.title || '')}</h3>
-                </div>
-
-                ${rec.type ? `<span class="rec-type-badge">${escapeHtml(rec.type)}</span>` : ''}
-
-                <div class="rec-row">
-                    <div class="rec-info-block">
-                        <div class="label">⚡ Почему сейчас</div>
-                        <div class="value">${escapeHtml(rec.why_now || '—')}</div>
-                    </div>
-                    <div class="rec-info-block">
-                        <div class="label">🌱 Польза</div>
-                        <div class="value">${escapeHtml(rec.benefit || '—')}</div>
-                    </div>
-                </div>
-
-                <div class="rec-meta-row">
-                    ${rec.budget ? `<span class="rec-meta-item">💰 ${escapeHtml(rec.budget)}</span>` : ''}
-                    ${rec.duration ? `<span class="rec-meta-item">⏱ ${escapeHtml(rec.duration)}</span>` : ''}
-                </div>
-
-                ${rec.details ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>` : ''}
-
-                ${rec.event_link ? `
-                <a href="${escapeHtml(rec.event_link)}" target="_blank" class="event-link-btn">
-                    🎟 Подробнее и билеты
-                </a>` : ''}
-
-                ${renderCinemaBlock(rec.cinema_info)}
-                ${renderMapBlock(rec.map_points, index)}
-            </div>
-        `).join('');
-
-        setTimeout(() => {
-            parsed.recommendations.forEach((rec, index) => {
-                if (rec.map_points && rec.map_points.length > 0) {
-                    initMap(rec.map_points, index);
-                }
-            });
-        }, 100);
-    } else {
-        listDiv.innerHTML = `<div class="rec-details" style="white-space:pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+        document.getElementById('recommendationsList').innerHTML =
+            parsed.recommendations.map((rec,i) => renderCard(rec, i, isQuick)).join('');
     }
+}
 
-    document.getElementById('recommendationsResult').style.display = 'block';
-    document.getElementById('recommendationsResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+function mergeDetails(rawData) {
+    const parsed = parseRec(rawData);
+    if (!parsed || !Array.isArray(parsed.recommendations)) return;
+
+    parsed.recommendations.forEach((rec, i) => {
+        const card = document.getElementById(`rec-card-${i}`);
+        if (!card) return;
+
+        // Заменяем плейсхолдер деталей
+        const detailEl = card.querySelector('.rec-details');
+        if (detailEl && rec.details) {
+            detailEl.classList.remove('detail-placeholder');
+            detailEl.innerHTML = `📝 ${escapeHtml(rec.details)}`;
+        }
+
+        // Добавляем блоки событий/кино/фитнес/карты
+        const extras = card.querySelector('.rec-extras');
+        if (extras) {
+            extras.innerHTML =
+                (rec.event_link ? `<a href="${escapeHtml(rec.event_link)}" target="_blank" class="event-link-btn">🎟 Подробнее и билеты</a>` : '') +
+                renderFitnessBlock(rec.fitness_info) +
+                renderCinemaBlock(rec.cinema_info) +
+                renderMapBlock(rec.map_points, i);
+        }
+
+        if (rec.map_points && rec.map_points.length > 0) {
+            setTimeout(() => initMap(rec.map_points, i), 100);
+        }
+    });
+}
+
+function renderCard(rec, index, isQuick) {
+    const isFitness = rec.type && rec.type.toLowerCase().includes('фитнес');
+    return `
+    <div class="rec-card" id="rec-card-${index}">
+        <div class="rec-card-header">
+            <div class="rec-number-badge">${index+1}</div>
+            <h3 class="rec-title">${escapeHtml(rec.title||'')}</h3>
+        </div>
+        ${rec.type ? `<span class="rec-type-badge ${isFitness?'fitness-badge':''}">${escapeHtml(rec.type)}</span>` : ''}
+        <div class="rec-row">
+            <div class="rec-info-block">
+                <div class="label">⚡ Почему сейчас</div>
+                <div class="value">${escapeHtml(rec.why_now||'—')}</div>
+            </div>
+            <div class="rec-info-block">
+                <div class="label">🌱 Польза</div>
+                <div class="value">${escapeHtml(rec.benefit||'—')}</div>
+            </div>
+        </div>
+        <div class="rec-meta-row">
+            ${rec.budget ? `<span class="rec-meta-item">💰 ${escapeHtml(rec.budget)}</span>` : ''}
+            ${rec.duration ? `<span class="rec-meta-item">⏱ ${escapeHtml(rec.duration)}</span>` : ''}
+        </div>
+        ${rec.details
+            ? `<div class="rec-details">📝 ${escapeHtml(rec.details)}</div>`
+            : (isQuick ? `<div class="rec-details detail-placeholder"></div>` : '')
+        }
+        <div class="rec-extras">
+            ${!isQuick ? (
+                (rec.event_link ? `<a href="${escapeHtml(rec.event_link)}" target="_blank" class="event-link-btn">🎟 Подробнее и билеты</a>` : '') +
+                renderFitnessBlock(rec.fitness_info) +
+                renderCinemaBlock(rec.cinema_info) +
+                renderMapBlock(rec.map_points, index)
+            ) : ''}
+        </div>
+    </div>`;
+}
+
+function renderFitnessBlock(info) {
+    if (!info || typeof info !== 'object') return '';
+    return `
+    <div class="fitness-block">
+        <div class="fitness-title-row">
+            <span class="fitness-icon">🏃</span>
+            <span class="fitness-name">${escapeHtml(info.activity||'')}</span>
+        </div>
+        <div class="fitness-meta">
+            ${info.level ? `<span class="fitness-badge">📊 ${escapeHtml(info.level)}</span>` : ''}
+            ${info.duration_min ? `<span class="fitness-badge">⏱ ${info.duration_min} мин</span>` : ''}
+            ${info.calories ? `<span class="fitness-badge">🔥 ${escapeHtml(info.calories)}</span>` : ''}
+            ${info.equipment ? `<span class="fitness-badge">🏋️ ${escapeHtml(info.equipment)}</span>` : ''}
+        </div>
+        ${info.why_fits_mood ? `<p class="fitness-why">💚 ${escapeHtml(info.why_fits_mood)}</p>` : ''}
+    </div>`;
 }
 
 function renderCinemaBlock(info) {
     if (!info || typeof info !== 'object') return '';
     return `
-        <div class="cinema-block">
-            <div class="cinema-title-row">
-                <span class="cinema-icon">🎬</span>
-                <span class="cinema-name">${escapeHtml(info.title_ru || info.title_en || '')}</span>
-                ${info.year ? `<span class="cinema-year">(${info.year})</span>` : ''}
-            </div>
-            <div class="cinema-meta">
-                ${info.genre ? `<span class="cinema-badge">🎭 ${escapeHtml(info.genre)}</span>` : ''}
-                ${info.rating_imdb ? `<span class="cinema-badge cinema-rating">⭐ IMDb ${escapeHtml(String(info.rating_imdb))}</span>` : ''}
-                ${info.duration_min ? `<span class="cinema-badge">⏱ ${info.duration_min} мин</span>` : ''}
-            </div>
-            ${info.description ? `<p class="cinema-desc">${escapeHtml(info.description)}</p>` : ''}
-            ${info.why_fits ? `<p class="cinema-desc" style="color:var(--primary);">💡 ${escapeHtml(info.why_fits)}</p>` : ''}
-            <div class="cinema-links">
-                ${info.kinopoisk_url ? `<a href="${escapeHtml(info.kinopoisk_url)}" target="_blank" class="cinema-link link-kinopoisk">🔶 Кинопоиск</a>` : ''}
-                ${info.shodim_url ? `<a href="${escapeHtml(info.shodim_url)}" target="_blank" class="cinema-link link-shodim">🎞 Shodim.kz</a>` : ''}
-            </div>
+    <div class="cinema-block">
+        <div class="cinema-title-row">
+            <span class="cinema-icon">🎬</span>
+            <span class="cinema-name">${escapeHtml(info.title_ru||info.title_en||'')}</span>
+            ${info.year ? `<span class="cinema-year">(${info.year})</span>` : ''}
         </div>
-    `;
+        <div class="cinema-meta">
+            ${info.genre ? `<span class="cinema-badge">🎭 ${escapeHtml(info.genre)}</span>` : ''}
+            ${info.rating_imdb ? `<span class="cinema-badge cinema-rating">⭐ IMDb ${escapeHtml(String(info.rating_imdb))}</span>` : ''}
+            ${info.duration_min ? `<span class="cinema-badge">⏱ ${info.duration_min} мин</span>` : ''}
+        </div>
+        ${info.description ? `<p class="cinema-desc">${escapeHtml(info.description)}</p>` : ''}
+        ${info.why_fits ? `<p class="cinema-desc" style="color:var(--primary);">💡 ${escapeHtml(info.why_fits)}</p>` : ''}
+        <div class="cinema-links">
+            ${info.kinopoisk_url ? `<a href="${escapeHtml(info.kinopoisk_url)}" target="_blank" class="cinema-link link-kinopoisk">🔶 Кинопоиск</a>` : ''}
+            ${info.shodim_url ? `<a href="${escapeHtml(info.shodim_url)}" target="_blank" class="cinema-link link-shodim">🎞 Shodim.kz</a>` : ''}
+        </div>
+    </div>`;
 }
 
 function renderMapBlock(points, recIndex) {
     if (!points || !Array.isArray(points) || points.length === 0) return '';
-
-    const stopsHtml = points.map((p, i) => {
-        const isHome = p.order === 0 || (p.name && p.name.includes('🏠'));
+    const stopsHtml = points.map((p,i) => {
+        const isHome = p.order===0 || (p.name && p.name.includes('🏠'));
         return `
         <div class="map-stop-item">
-            <div class="stop-dot" style="${isHome ? 'background:#16a34a;' : ''}">
-                ${isHome ? '🏠' : (p.order || i + 1)}
+            <div class="stop-dot" style="${isHome?'background:#16a34a;':''}">
+                ${isHome ? '🏠' : (p.order||i+1)}
             </div>
             <div>
-                <strong style="color:var(--text);">${escapeHtml(p.name || '')}</strong>
-                ${p.address && !isHome ? ` — <span>${escapeHtml(p.address)}</span>` : ''}
+                <strong style="color:var(--text);">${escapeHtml(p.name||'')}</strong>
+                ${p.address&&!isHome ? ` — <span>${escapeHtml(p.address)}</span>` : ''}
                 ${p.tip ? `<br><span style="font-size:0.8rem;color:var(--primary);">💡 ${escapeHtml(p.tip)}</span>` : ''}
             </div>
         </div>`;
     }).join('');
-
     return `
-        <div class="map-section">
-            <div class="map-header">🗺️ Маршрут · ${points.length} точек</div>
-            <div class="map-container" id="map-${recIndex}"></div>
-            <div class="map-stops">${stopsHtml}</div>
-        </div>
-    `;
+    <div class="map-section">
+        <div class="map-header">🗺️ Маршрут · ${points.length} точек</div>
+        <div class="map-container" id="map-${recIndex}"></div>
+        <div class="map-stops">${stopsHtml}</div>
+    </div>`;
 }
 
 function initMap(points, recIndex) {
     const mapId = `map-${recIndex}`;
     if (mapInstances[mapId]) return;
-
     const validPoints = points.filter(p => p.lat && p.lng);
     if (validPoints.length === 0) return;
 
-    const map = L.map(mapId, { zoomControl: true, scrollWheelZoom: false });
+    const map = L.map(mapId, {zoomControl:true, scrollWheelZoom:false});
     mapInstances[mapId] = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap', maxZoom: 18
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {attribution:'© OpenStreetMap', maxZoom:18}).addTo(map);
 
     const latlngs = [];
-
     validPoints.forEach((point, i) => {
         const latlng = [point.lat, point.lng];
         latlngs.push(latlng);
-        const isHome = point.order === 0 || (point.name && point.name.includes('🏠'));
-
+        const isHome = point.order===0 || (point.name && point.name.includes('🏠'));
         const icon = L.divIcon({
-            className: '',
+            className:'',
             html: isHome
                 ? `<div style="background:#16a34a;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2.5px solid white;box-shadow:0 2px 8px rgba(22,163,74,0.4);">🏠</div>`
-                : `<div style="background:#5046e4;color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 6px rgba(80,70,228,0.4);">${point.order || i + 1}</div>`,
-            iconSize: isHome ? [32, 32] : [26, 26],
-            iconAnchor: isHome ? [16, 16] : [13, 13]
+                : `<div style="background:#5046e4;color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 6px rgba(80,70,228,0.4);">${point.order||i+1}</div>`,
+            iconSize: isHome?[32,32]:[26,26],
+            iconAnchor: isHome?[16,16]:[13,13]
         });
-
-        const marker = L.marker(latlng, { icon }).addTo(map);
+        const marker = L.marker(latlng,{icon}).addTo(map);
         if (point.name) {
-            marker.bindPopup(`<strong>${point.name}</strong>${point.address && !isHome ? '<br>' + point.address : ''}${point.tip ? '<br><em>' + point.tip + '</em>' : ''}`);
+            marker.bindPopup(`<strong>${point.name}</strong>${point.address&&!isHome?'<br>'+point.address:''}${point.tip?'<br><em>'+point.tip+'</em>':''}`);
         }
     });
 
     if (latlngs.length > 1) {
-        L.polyline(latlngs, { color: '#5046e4', weight: 2.5, opacity: 0.7, dashArray: '8, 5' }).addTo(map);
+        L.polyline(latlngs,{color:'#5046e4',weight:2.5,opacity:0.7,dashArray:'8, 5'}).addTo(map);
     }
-
-    if (latlngs.length === 1) {
-        map.setView(latlngs[0], 14);
-    } else {
-        map.fitBounds(latlngs, { padding: [30, 30] });
-    }
+    latlngs.length === 1 ? map.setView(latlngs[0], 14) : map.fitBounds(latlngs,{padding:[30,30]});
 }
 
 function escapeHtml(str) {
     if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Инициализация
+toggleCityField();
 </script>
 {% endblock %}

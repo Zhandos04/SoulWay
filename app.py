@@ -51,6 +51,25 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 EVENT_FETCHER_URL = os.getenv('EVENT_FETCHER_URL', 'https://event-fetcher-d058.onrender.com')
 
 
+CITY_NAME_MAP = {
+    'Алматы': 'Almaty',
+    'Астана': 'Astana',
+    'Шымкент': 'Shymkent',
+    'Актобе': 'Aktobe',
+    'Атырау': 'Atyrau',
+    'Павлодар': 'Pavlodar',
+    'Усть-Каменогорск': 'Ust-Kamenogorsk',
+    'Семей': 'Semey',
+    'Тараз': 'Taraz',
+    'Костанай': 'Kostanay',
+}
+
+
+def translate_city(city: str) -> str:
+    """Переводит название города с русского на английский для API запросов."""
+    return CITY_NAME_MAP.get(city, city)
+
+
 def fetch_city_events(city: str) -> dict:
     """
     Получить реальные события и фильмы по городу через event-fetcher API.
@@ -582,11 +601,170 @@ def recommendations():
     return render_template('recommendations.html')
 
 
+def build_recommendations_prompt(data, user_data, mode='full'):
+    """
+    Строит промпт для рекомендаций.
+    mode='quick'  — короткий промпт, только названия + why_now (быстрый первый ответ)
+    mode='full'   — полный промпт с деталями, кино, картой
+    """
+    recent_entries = user_data['journal_entries'][-5:] if user_data['journal_entries'] else []
+    prefs = user_data['preferences']
+    activity_type = data.get('type', 'any')
+    city = data.get('city', prefs.get('city', 'Алматы'))
+    home_address = prefs.get('home_address')
+
+    recent_entries_short = [{'text': e['text'], 'mood': e['mood']} for e in recent_entries]
+    context = f"""
+КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
+Последние записи в дневнике:
+{json.dumps(recent_entries_short, ensure_ascii=False)}
+Предпочтения: {json.dumps(prefs, ensure_ascii=False)}
+Текущий запрос: {data.get('context', 'общие рекомендации')}
+Тип активности: {data.get('type', 'любой')}
+Бюджет: {data.get('budget', prefs.get('budget', 'medium'))}
+Город: {city}
+"""
+
+    # FITNESS инструкция — всегда добавляем если тип any/fitness
+    fitness_instruction = ""
+    if activity_type in ['any', 'fitness']:
+        fitness_instruction = """
+ФИТНЕС-АКТИВНОСТИ: Обязательно включи 1-2 фитнес-рекомендации с полем "fitness_info":
+{
+    "activity": "название активности (йога/бег/плавание/зал/танцы/велосипед/etc)",
+    "level": "уровень (начинающий/средний/продвинутый)",
+    "duration_min": 45,
+    "calories": "примерный расход калорий",
+    "equipment": "необходимое оборудование или место",
+    "why_fits_mood": "почему эта активность подходит текущему настроению"
+}
+"""
+
+    if mode == 'quick':
+        return f"""
+Ты - SoulWay, ассистент для подбора досуга в Казахстане.
+{context}
+
+Быстро подбери 5-6 идей для досуга. Ответ ТОЛЬКО в JSON без markdown:
+{{
+    "recommendations": [
+        {{
+            "title": "название",
+            "type": "тип",
+            "why_now": "одно предложение — почему сейчас",
+            "benefit": "польза",
+            "budget": "бюджет",
+            "duration": "время"
+        }}
+    ],
+    "overall_insight": "одно предложение об общем состоянии"
+}}
+"""
+
+    # FULL mode — собираем полный промпт
+    real_events_instruction = ""
+    if activity_type in ['any', 'city']:
+        city_data = fetch_city_events(translate_city(city))
+        events = city_data['events'][:10]
+        movies = city_data['movies'][:10]
+
+        if events:
+            events_json = json.dumps(
+                [{'title': e.get('title'), 'category': e.get('category'),
+                  'description': e.get('description'), 'link': e.get('link')}
+                 for e in events],
+                ensure_ascii=False, indent=2
+            )
+            real_events_instruction += f"""
+РЕАЛЬНЫЕ СОБЫТИЯ В ГОРОДЕ {city} (данные от sxodim/kino.kz):
+{events_json}
+При рекомендации события — используй реальное название, описание и ссылку. Добавь "event_link".
+"""
+        if movies:
+            movies_json = json.dumps(
+                [{'title': e.get('title'), 'genre': e.get('genre'),
+                  'rating': e.get('rating'), 'description': e.get('description'),
+                  'link': e.get('link')}
+                 for e in movies],
+                ensure_ascii=False, indent=2
+            )
+            real_events_instruction += f"""
+РЕАЛЬНЫЕ ФИЛЬМЫ В ПРОКАТЕ В {city}:
+{movies_json}
+При рекомендации кино — используй реальные данные. Добавь "cinema_info" с "shodim_url".
+"""
+
+    home_addr_instruction = ""
+    if home_address and home_address.get('lat'):
+        home_addr_instruction = f"""
+ДОМАШНИЙ АДРЕС (начальная точка маршрута):
+Название: {home_address.get('name', '')}
+Координаты: lat={home_address.get('lat')}, lng={home_address.get('lng')}
+"""
+
+    cinema_instruction = ""
+    if activity_type in ['any', 'city']:
+        cinema_instruction = """
+Если рекомендуешь кино/сериал, добавь "cinema_info":
+{
+    "title_ru": "название на русском", "title_en": "английское название",
+    "year": 2024, "genre": "жанр", "rating_imdb": "7.5", "duration_min": 120,
+    "kinopoisk_url": "https://www.kinopoisk.ru/film/XXXXX/",
+    "shodim_url": "https://shodim.kz/films/XXXXX/",
+    "description": "краткое описание", "why_fits": "почему подходит"
+}
+"""
+
+    map_instruction = ""
+    if activity_type in ['city', 'travel']:
+        start_pt = ""
+        if home_address and home_address.get('lat'):
+            start_pt = f'Первая точка (order:0): name:"🏠 Мой дом", lat:{home_address.get("lat")}, lng:{home_address.get("lng")}'
+        map_instruction = f"""
+Для городских активностей и путешествий добавь "map_points":
+[{{"name":"место","address":"адрес","lat":51.18,"lng":71.44,"order":1,"tip":"совет"}}]
+{start_pt}
+Используй реальные координаты Казахстана.
+"""
+
+    return f"""
+Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга в Казахстане.
+{context}
+{home_addr_instruction}
+{real_events_instruction}
+{fitness_instruction}
+
+Подбери 5-7 персонализированных рекомендаций. Включи реальные события/фильмы если есть.
+{cinema_instruction}
+{map_instruction}
+
+Ответ ТОЛЬКО в JSON без markdown:
+{{
+    "recommendations": [
+        {{
+            "title": "название",
+            "type": "тип (кино/прогулка/путешествие/книга/музыка/фитнес/etc)",
+            "why_now": "почему подходит именно сейчас",
+            "benefit": "польза для эмоций",
+            "budget": "бюджет",
+            "duration": "продолжительность",
+            "details": "детали и конкретные советы",
+            "event_link": null,
+            "cinema_info": null,
+            "fitness_info": null,
+            "map_points": null
+        }}
+    ],
+    "overall_insight": "общий инсайт о текущем состоянии и потребностях"
+}}
+"""
+
+
 @app.route('/recommendations/get', methods=['POST'])
 @login_required
 def get_recommendations():
     """
-    Получить персональные рекомендации
+    Получить персональные рекомендации (быстрый первый ответ)
     ---
     tags:
       - Recommendations
@@ -605,161 +783,20 @@ def get_recommendations():
             budget:
               type: string
               example: medium
+            city:
+              type: string
+              example: Алматы
     responses:
       200:
-        description: Список рекомендаций от AI
+        description: Быстрый список рекомендаций от AI
     """
     data = request.json
     user_data = get_user_data()
     user_id = get_user_id()
 
-    recent_entries = user_data['journal_entries'][-5:] if user_data['journal_entries'] else []
-    prefs = user_data['preferences']
-
-    context = f"""
-    КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
-    
-    Последние записи в дневнике:
-    {json.dumps([{'text': e['text'], 'mood': e['mood']} for e in recent_entries], ensure_ascii=False, indent=2)}
-    
-    Предпочтения:
-    {json.dumps(prefs, ensure_ascii=False, indent=2)}
-    
-    Текущий запрос: {data.get('context', 'общие рекомендации')}
-    Тип активности: {data.get('type', 'любой')}
-    Бюджет: {data.get('budget', prefs.get('budget', 'medium'))}
-    """
-
-    activity_type = data.get('type', 'any')
-    home_address = prefs.get('home_address')
-
-    # --- Получаем реальные события из event-fetcher API ---
-    city = data.get('city', prefs.get('city', 'Almaty'))
-    real_events_instruction = ""
-    if activity_type in ['any', 'city']:
-        city_data = fetch_city_events(city)
-        events = city_data['events'][:10]   # не более 10 событий
-        movies = city_data['movies'][:10]   # не более 10 фильмов
-
-        if events:
-            events_json = json.dumps(
-                [{'title': e.get('title'), 'category': e.get('category'),
-                  'description': e.get('description'), 'link': e.get('link')}
-                 for e in events],
-                ensure_ascii=False, indent=2
-            )
-            real_events_instruction += f"""
-    РЕАЛЬНЫЕ СОБЫТИЯ В ГОРОДЕ {city} (актуальные данные от sxodim/kino.kz):
-    {events_json}
-    ВАЖНО: При рекомендации мероприятия из этого списка — используй его реальное название,
-    описание и ссылку. Добавь поле "event_link" с url из данных выше.
-    """
-
-        if movies:
-            movies_json = json.dumps(
-                [{'title': e.get('title'), 'genre': e.get('genre'),
-                  'rating': e.get('rating'), 'description': e.get('description'),
-                  'link': e.get('link')}
-                 for e in movies],
-                ensure_ascii=False, indent=2
-            )
-            real_events_instruction += f"""
-    РЕАЛЬНЫЕ ФИЛЬМЫ В ПРОКАТЕ В {city}:
-    {movies_json}
-    ВАЖНО: При рекомендации кино из этого списка — используй реальные данные выше.
-    Добавь поле "cinema_info" с полем "shodim_url" = ссылка из данных.
-    """
-
-    home_addr_instruction = ""
-    if home_address and home_address.get('lat'):
-        home_addr_instruction = f"""
-    ДОМАШНИЙ АДРЕС ПОЛЬЗОВАТЕЛЯ (начальная точка маршрута):
-    Название: {home_address.get('name', '')}
-    Координаты: lat={home_address.get('lat')}, lng={home_address.get('lng')}
-    """
-
-    # Формируем инструкции для кино и карты в зависимости от типа
-    cinema_instruction = ""
-    map_instruction = ""
-
-    if activity_type in ['any', 'city']:
-        cinema_instruction = """
-    ВАЖНО: Если рекомендуешь кино или сериал, обязательно добавь поле "cinema_info" со структурой:
-    {
-        "title_ru": "название на русском",
-        "title_en": "название на английском",
-        "year": 2024,
-        "genre": "жанр",
-        "rating_imdb": "7.5",
-        "duration_min": 120,
-        "kinopoisk_url": "https://www.kinopoisk.ru/film/XXXXX/",
-        "shodim_url": "https://shodim.kz/films/XXXXX/",
-        "description": "краткое описание",
-        "why_fits": "почему подходит пользователю"
-    }
-    Приоритет — фильмы из списка реальных фильмов выше (если они есть).
-    """
-
-    if activity_type in ['city', 'travel']:
-        start_point_instruction = ""
-        if home_address and home_address.get('lat'):
-            start_point_instruction = f"""
-    ОБЯЗАТЕЛЬНО: Первой точкой маршрута (order: 0) должен быть домашний адрес пользователя:
-    name: "🏠 Мой дом", lat: {home_address.get('lat')}, lng: {home_address.get('lng')}, address: "{home_address.get('name', '')}"
-    Затем добавь точки маршрута начиная с order: 1.
-    """
-        map_instruction = f"""
-    ВАЖНО: Для активностей в городе или путешествий добавь поле "map_points" — массив точек маршрута:
-    [
-        {{
-            "name": "название места",
-            "address": "адрес или описание",
-            "lat": 51.1801,
-            "lng": 71.4460,
-            "order": 1,
-            "tip": "совет для посещения"
-        }}
-    ]
-    {start_point_instruction}
-    Используй реальные координаты. Для городских активностей — координаты в городе пользователя (Казахстан).
-    Для путешествий — координаты точек маршрута в указанной стране.
-    """
-
-    prompt = f"""
-    Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга в Казахстане.
-    
-    {context}
-    {home_addr_instruction}
-    {real_events_instruction}
-    
-    На основе эмоционального состояния, предпочтений и контекста пользователя,
-    подбери 5-7 персонализированных рекомендаций для досуга.
-    Если есть подходящие реальные события или фильмы выше — включи их в рекомендации.
-    
-    {cinema_instruction}
-    {map_instruction}
-    
-    Ответ дай ТОЛЬКО в формате JSON без markdown-обёртки:
-    {{
-        "recommendations": [
-            {{
-                "title": "название",
-                "type": "тип (кино/прогулка/путешествие/книга/музыка/etc)",
-                "why_now": "почему подходит именно сейчас",
-                "benefit": "польза для эмоций",
-                "budget": "бюджет",
-                "duration": "продолжительность",
-                "details": "детали и конкретные советы",
-                "event_link": null,
-                "cinema_info": null,
-                "map_points": null
-            }}
-        ],
-        "overall_insight": "общий инсайт о текущем состоянии и потребностях"
-    }}
-    """
-
-    result_raw = analyze_with_gemini(prompt)
+    # Быстрый запрос — только названия и краткие описания
+    quick_prompt = build_recommendations_prompt(data, user_data, mode='quick')
+    result_raw = analyze_with_gemini(quick_prompt)
 
     try:
         parsed = parse_gemini_json(result_raw)
@@ -767,6 +804,7 @@ def get_recommendations():
     except Exception:
         result_str = result_raw
 
+    # Сохраняем быстрый результат в историю
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
@@ -776,6 +814,48 @@ def get_recommendations():
     conn.commit()
     cursor.close()
     conn.close()
+
+    return jsonify({'success': True, 'recommendations': result_str})
+
+
+@app.route('/recommendations/details', methods=['POST'])
+@login_required
+def get_recommendations_details():
+    """
+    Получить детальные рекомендации (второй фоновый запрос)
+    ---
+    tags:
+      - Recommendations
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            context:
+              type: string
+            type:
+              type: string
+            budget:
+              type: string
+            city:
+              type: string
+    responses:
+      200:
+        description: Детальные рекомендации с картой, кино, фитнесом
+    """
+    data = request.json
+    user_data = get_user_data()
+    user_id = get_user_id()
+
+    full_prompt = build_recommendations_prompt(data, user_data, mode='full')
+    result_raw = analyze_with_gemini(full_prompt)
+
+    try:
+        parsed = parse_gemini_json(result_raw)
+        result_str = json.dumps(parsed, ensure_ascii=False)
+    except Exception:
+        result_str = result_raw
 
     return jsonify({'success': True, 'recommendations': result_str})
 

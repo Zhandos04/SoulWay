@@ -14,7 +14,10 @@
     <nav class="navbar">
         <div class="container">
             <a href="/" class="logo">🌿 <span>SoulWay</span></a>
-            <ul class="nav-menu">
+            <button class="nav-toggle" id="navToggle" aria-label="Открыть меню">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="/">Главная</a></li>
                 <li><a href="/journal">Дневник</a></li>
                 <li><a href="/preferences">Предпочтения</a></li>
@@ -40,6 +43,24 @@
         </div>
     </footer>
 
+    <script>
+    // Hamburger меню
+    const navToggle = document.getElementById('navToggle');
+    const navMenu = document.getElementById('navMenu');
+    if (navToggle && navMenu) {
+        navToggle.addEventListener('click', function() {
+            this.classList.toggle('open');
+            navMenu.classList.toggle('open');
+        });
+        // Закрыть при клике на пункт
+        navMenu.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => {
+                navToggle.classList.remove('open');
+                navMenu.classList.remove('open');
+            });
+        });
+    }
+    </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
