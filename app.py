@@ -610,10 +610,23 @@ def build_recommendations_prompt(data, user_data, mode='full'):
     recent_entries = user_data['journal_entries'][-5:] if user_data['journal_entries'] else []
     prefs = user_data['preferences']
     activity_type = data.get('type', 'any')
-    city = data.get('city', prefs.get('city', 'Алматы'))
-    home_address = prefs.get('home_address')
+    home_address = prefs.get('home_address') or {}
+    home_addr_name = home_address.get('name', '')
+    city_from_address = home_addr_name.split(',')[0].strip() if home_addr_name else ''
+    city = data.get('city') or city_from_address or 'Алматы'
 
     recent_entries_short = [{'text': e['text'], 'mood': e['mood']} for e in recent_entries]
+
+    travel_instruction = ""
+    if activity_type == 'travel':
+        budget_val = data.get('budget', prefs.get('budget', 'medium'))
+        travel_instruction = f"""
+ВАЖНО — РЕЖИМ ПУТЕШЕСТВИЙ:
+Пользователь ищет направления для поездки ЗА РУБЕЖ или по СНГ. Город проживания: {city}.
+Бюджет: {budget_val}. Предлагай конкретные страны и города назначения (НЕ активности внутри {city}).
+Для каждого направления укажи: страну, город, почему подходит, что делать, примерный бюджет перелёта+отеля.
+"""
+
     context = f"""
 КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:
 Последние записи в дневнике:
@@ -622,8 +635,8 @@ def build_recommendations_prompt(data, user_data, mode='full'):
 Текущий запрос: {data.get('context', 'общие рекомендации')}
 Тип активности: {data.get('type', 'любой')}
 Бюджет: {data.get('budget', prefs.get('budget', 'medium'))}
-Город: {city}
-"""
+Город проживания: {city}
+{travel_instruction}"""
 
     # FITNESS инструкция — всегда добавляем если тип any/fitness
     fitness_instruction = ""
@@ -641,8 +654,14 @@ def build_recommendations_prompt(data, user_data, mode='full'):
 """
 
     if mode == 'quick':
+        quick_role = (
+            "Ты - SoulWay, ассистент для подбора путешествий. "
+            "Пользователь из Казахстана ищет международные направления — предлагай страны и города по всему миру."
+            if activity_type == 'travel'
+            else "Ты - SoulWay, ассистент для подбора досуга в Казахстане."
+        )
         return f"""
-Ты - SoulWay, ассистент для подбора досуга в Казахстане.
+{quick_role}
 {context}
 
 Быстро подбери 5-6 идей для досуга. Ответ ТОЛЬКО в JSON без markdown:
@@ -717,18 +736,23 @@ def build_recommendations_prompt(data, user_data, mode='full'):
 
     map_instruction = ""
     if activity_type in ['city', 'travel']:
-        start_pt = ""
-        if home_address and home_address.get('lat'):
-            start_pt = f'Первая точка (order:0): name:"🏠 Мой дом", lat:{home_address.get("lat")}, lng:{home_address.get("lng")}'
-        map_instruction = f"""
-Для городских активностей и путешествий добавь "map_points":
-[{{"name":"место","address":"адрес","lat":51.18,"lng":71.44,"order":1,"tip":"совет"}}]
-{start_pt}
-Используй реальные координаты Казахстана.
+        map_instruction = """
+Для каждой рекомендации с конкретным местом добавь "map_points" с реальными координатами:
+[{"name":"место","address":"адрес","lat":0.0,"lng":0.0,"order":1,"tip":"совет"}]
+Для международных направлений используй координаты страны/города назначения.
+Нумерацию order начинай с 1 — стартовая точка будет добавлена автоматически.
 """
 
+    assistant_role = (
+        "Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга. "
+        "Пользователь находится в Казахстане и ищет международные направления для путешествий — "
+        "предлагай страны и города по всему миру, соответствующие бюджету и настроению."
+        if activity_type == 'travel'
+        else "Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга в Казахстане."
+    )
+
     return f"""
-Ты - SoulWay, интеллектуальный ассистент для подбора осмысленного досуга в Казахстане.
+{assistant_role}
 {context}
 {home_addr_instruction}
 {real_events_instruction}
@@ -758,6 +782,44 @@ def build_recommendations_prompt(data, user_data, mode='full'):
     "overall_insight": "общий инсайт о текущем состоянии и потребностях"
 }}
 """
+
+
+def inject_home_point(parsed, home_address):
+    """
+    Программно вставляет домашнюю точку (order:0) в map_points каждой рекомендации.
+    Не доверяем Gemini координаты дома — берём из сохранённого адреса пользователя.
+    """
+    if not home_address or not home_address.get('lat') or not home_address.get('lng'):
+        return parsed
+    if not isinstance(parsed, dict) or 'recommendations' not in parsed:
+        return parsed
+
+    home_point = {
+        'name': '🏠 Мой дом',
+        'address': home_address.get('name', ''),
+        'lat': float(home_address.get('lat')),
+        'lng': float(home_address.get('lng')),
+        'order': 0,
+        'tip': 'Начало маршрута'
+    }
+
+    for rec in parsed.get('recommendations', []):
+        points = rec.get('map_points')
+        if not points or not isinstance(points, list) or len(points) == 0:
+            continue
+        # Удаляем любые точки которые Gemini добавил с order:0 или именем дома
+        points = [p for p in points if not (
+            p.get('order') == 0 or
+            ('дом' in str(p.get('name', '')).lower()) or
+            ('home' in str(p.get('name', '')).lower())
+        )]
+        # Пересчитываем order
+        for i, p in enumerate(points):
+            p['order'] = i + 1
+        # Вставляем правильную домашнюю точку в начало
+        rec['map_points'] = [home_point] + points
+
+    return parsed
 
 
 @app.route('/recommendations/get', methods=['POST'])
@@ -800,6 +862,7 @@ def get_recommendations():
 
     try:
         parsed = parse_gemini_json(result_raw)
+        parsed = inject_home_point(parsed, user_data.get('preferences', {}).get('home_address'))
         result_str = json.dumps(parsed, ensure_ascii=False)
     except Exception:
         result_str = result_raw
@@ -853,6 +916,7 @@ def get_recommendations_details():
 
     try:
         parsed = parse_gemini_json(result_raw)
+        parsed = inject_home_point(parsed, user_data.get('preferences', {}).get('home_address'))
         result_str = json.dumps(parsed, ensure_ascii=False)
     except Exception:
         result_str = result_raw
@@ -968,6 +1032,128 @@ def suggest_travel():
 
     suggestions_raw = analyze_with_gemini(prompt)
     return jsonify({'success': True, 'suggestions': suggestions_raw})
+
+
+@app.route('/chat')
+@login_required_page
+def chat_page():
+    """Страница чата с ИИ-ассистентом"""
+    user_data = get_user_data()
+    safe_user_data = {
+        'journal_entries': user_data.get('journal_entries', []),
+        'preferences': user_data.get('preferences', {}),
+        'history': user_data.get('history', [])
+    }
+    return render_template('chat.html', user_data=safe_user_data)
+
+
+@app.route('/chat/send', methods=['POST'])
+@login_required
+def chat_send():
+    """
+    Отправить сообщение ИИ-ассистенту
+    ---
+    tags:
+      - Chat
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Мне грустно, что посоветуешь?
+            history:
+              type: array
+              items:
+                type: object
+    responses:
+      200:
+        description: Ответ ассистента
+    """
+    data = request.json
+    user_message = data.get('message', '').strip()
+    history = data.get('history', [])
+
+    if not user_message:
+        return jsonify({'error': 'Пустое сообщение'}), 400
+
+    user_data = get_user_data()
+    entries = user_data.get('journal_entries', [])
+    prefs = user_data.get('preferences', {})
+
+    # Контекст о пользователе
+    recent_entries_summary = ''
+    if entries:
+        recent = entries[-5:]
+        recent_entries_summary = '\n'.join([
+            f"- {e['date'][:10]}: настроение {e['mood']}/10, {e['text'][:120]}..."
+            for e in recent
+        ])
+
+    prefs_summary = ''
+    if prefs:
+        parts = []
+        if prefs.get('interests'):
+            parts.append(f"интересы: {', '.join(prefs['interests'])}")
+        if prefs.get('budget'):
+            budget_map = {'low': 'ограниченный', 'medium': 'средний', 'high': 'комфортный'}
+            parts.append(f"бюджет: {budget_map.get(prefs['budget'], prefs['budget'])}")
+        if prefs.get('activity_level'):
+            act_map = {'low': 'спокойный', 'moderate': 'умеренный', 'high': 'активный'}
+            parts.append(f"активность: {act_map.get(prefs['activity_level'], prefs['activity_level'])}")
+        if prefs.get('favorite_genres'):
+            parts.append(f"жанры: {', '.join(prefs['favorite_genres'])}")
+        if prefs.get('avoid'):
+            parts.append(f"избегает: {', '.join(prefs['avoid'])}")
+        prefs_summary = '; '.join(parts)
+
+    city = ''
+    if prefs.get('home_address', {}).get('name'):
+        city = prefs['home_address']['name'].split(',')[0].strip()
+
+    system_prompt = f"""Ты — SoulWay, дружелюбный и эмпатичный ИИ-ассистент для осмысленного досуга.
+Ты помогаешь пользователю найти баланс, подобрать активности и понять своё эмоциональное состояние.
+
+ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ:
+Город: {city or 'не указан'}
+Предпочтения: {prefs_summary or 'не заданы'}
+
+ПОСЛЕДНИЕ ЗАПИСИ В ДНЕВНИКЕ:
+{recent_entries_summary or 'Дневник пуст.'}
+
+ПРАВИЛА:
+- Отвечай на русском языке
+- Будь конкретным и полезным, не общим
+- Учитывай эмоциональное состояние из дневника
+- Предлагай реальные активности с учётом города и бюджета пользователя
+- Если пользователь грустит или тревожится — сначала прояви эмпатию
+- Используй emoji умеренно для тепла
+- Отвечай кратко (2-4 абзаца), но содержательно
+- Не нужно каждый раз упоминать что ты ИИ"""
+
+    # Строим историю для Gemini
+    conversation_parts = []
+    for msg in history[-8:]:
+        role = msg.get('role', 'user')
+        content = msg.get('content', '')
+        if role == 'user':
+            conversation_parts.append(f"Пользователь: {content}")
+        elif role == 'assistant':
+            conversation_parts.append(f"Ассистент: {content}")
+
+    full_prompt = system_prompt + "\n\n" + "\n".join(conversation_parts) + f"\nПользователь: {user_message}\nАссистент:"
+
+    try:
+        reply = analyze_with_gemini(full_prompt)
+        # Убираем префикс "Ассистент:" если Gemini его добавил
+        reply = reply.strip()
+        if reply.startswith('Ассистент:'):
+            reply = reply[len('Ассистент:'):].strip()
+        return jsonify({'success': True, 'reply': reply})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.errorhandler(404)

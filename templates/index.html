@@ -3,58 +3,83 @@
 {% block content %}
 <div class="hero">
     <div class="container">
-        <h1>Добро пожаловать<br>в <em>SoulWay</em></h1>
-        <p class="subtitle">Персональный ассистент для осмысленного досуга,<br>самопознания и эмоционального баланса</p>
+        <div class="hero-inner">
+            <!-- LEFT: headline + CTA -->
+            <div class="hero-left">
+                <span class="hero-eyebrow">ИИ-ассистент для досуга</span>
 
-        <div class="hero-cards">
-            <div class="card">
-                <span class="card-icon">📔</span>
-                <h3>Дневник эмоций</h3>
-                <p>Записывайте мысли и отслеживайте эмоциональное состояние день за днём</p>
-                <a href="/journal" class="btn">Начать писать</a>
+                <h1>
+                    Найди баланс<br>
+                    и смысл<br>
+                    в каждом <em>дне</em>
+                </h1>
+
+                <p class="hero-desc">
+                    SoulWay анализирует ваше эмоциональное состояние и подбирает
+                    активности, которые подходят именно вам — прямо сейчас.
+                </p>
+
+                <div class="hero-actions">
+                    <a href="/recommendations" class="btn btn-primary btn-large">Получить рекомендации</a>
+                    <a href="/journal" class="btn btn-outline btn-large">Вести дневник</a>
+                </div>
             </div>
 
-            <div class="card">
-                <span class="card-icon">🎯</span>
-                <h3>Персональные рекомендации</h3>
-                <p>Получайте умные подборки досуга на основе анализа вашего состояния</p>
-                <a href="/recommendations" class="btn">Получить рекомендации</a>
-            </div>
+            <!-- RIGHT: dark panel with feature cards -->
+            <div class="hero-right">
+                <div class="hero-feature-card">
+                    <span class="hfc-icon">📔</span>
+                    <div class="hfc-body">
+                        <div class="hfc-title">Дневник эмоций</div>
+                        <div class="hfc-desc">Записывайте мысли, отслеживайте настроение. ИИ анализирует каждую запись и ищет паттерны.</div>
+                        <a href="/journal" class="hfc-link">Начать</a>
+                    </div>
+                </div>
 
-            <div class="card">
-                <span class="card-icon">✈️</span>
-                <h3>Путешествия</h3>
-                <p>Направления для роста, вдохновения и эмоционального обновления</p>
-                <a href="/recommendations?type=travel" class="btn">Подобрать поездку</a>
+                <div class="hero-feature-card">
+                    <span class="hfc-icon">🎯</span>
+                    <div class="hfc-body">
+                        <div class="hfc-title">Умные рекомендации</div>
+                        <div class="hfc-desc">Кино, прогулки, фитнес, путешествия — подборка на основе вашего состояния и предпочтений.</div>
+                        <a href="/recommendations" class="hfc-link">Попробовать</a>
+                    </div>
+                </div>
+
+                <div class="hero-feature-card">
+                    <span class="hfc-icon">✈️</span>
+                    <div class="hfc-body">
+                        <div class="hfc-title">Маршруты по городу</div>
+                        <div class="hfc-desc">Реальные события и фильмы в прокате. Маршруты от вашего дома с картой.</div>
+                        <a href="/recommendations?type=travel" class="hfc-link">Исследовать</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<section style="padding: 4rem 0; border-top: 1px solid var(--border);">
+<section class="how-section">
     <div class="container">
-        <p style="text-align:center; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-tertiary); font-weight:600; margin-bottom:2.5rem;">Как это работает</p>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1.5rem;">
-            <div style="display:flex; gap:1rem; align-items:flex-start;">
-                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">1</div>
-                <div>
-                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Анализ состояния</h3>
-                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">ИИ анализирует ваши записи, настроение и предпочтения</p>
-                </div>
+        <p class="section-label">Как работает SoulWay</p>
+        <h2 class="section-title">Три шага к осмысленному досугу</h2>
+
+        <div class="how-grid">
+            <div class="how-step">
+                <div class="how-num">01</div>
+                <h3 class="how-title">Анализ состояния</h3>
+                <p class="how-desc">ИИ читает ваши записи в дневнике, оценивает настроение и выявляет эмоциональные триггеры.</p>
             </div>
-            <div style="display:flex; gap:1rem; align-items:flex-start;">
-                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">2</div>
-                <div>
-                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Умный подбор</h3>
-                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">Система находит активности, подходящие именно сейчас</p>
-                </div>
+
+            <div class="how-step">
+                <div class="how-num">02</div>
+                <h3 class="how-title">Умный подбор</h3>
+                <p class="how-desc">Система сопоставляет ваши предпочтения, бюджет и текущее состояние с реальными событиями города.</p>
             </div>
-            <div style="display:flex; gap:1rem; align-items:flex-start;">
-                <div style="min-width:36px; height:36px; background:var(--primary-pale); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.875rem;">3</div>
-                <div>
-                    <h3 style="font-family:'Instrument Serif',serif; font-weight:400; font-size:1.1rem; margin-bottom:0.4rem;">Рост и баланс</h3>
-                    <p style="color:var(--text-secondary); font-size:0.875rem; line-height:1.6;">Каждая рекомендация — шаг к самопознанию</p>
-                </div>
+
+            <div class="how-step">
+                <div class="how-num">03</div>
+                <h3 class="how-title">Рост и баланс</h3>
+                <p class="how-desc">Каждая рекомендация — шаг к самопознанию. Аналитика помогает понять себя глубже со временем.</p>
             </div>
         </div>
     </div>

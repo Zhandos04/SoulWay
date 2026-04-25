@@ -1,0 +1,654 @@
+{% extends "base.html" %}
+
+{% block title %}ИИ-ассистент — SoulWay{% endblock %}
+
+{% block content %}
+<div class="container chat-page">
+    <div class="chat-layout">
+        <!-- Sidebar -->
+        <aside class="chat-sidebar">
+            <div class="chat-sidebar-header">
+                <span class="chat-bot-avatar">🌿</span>
+                <div>
+                    <div class="chat-bot-name">SoulWay AI</div>
+                    <div class="chat-bot-status"><span class="status-dot"></span>Онлайн</div>
+                </div>
+            </div>
+
+            <div class="chat-sidebar-section">
+                <p class="sidebar-label">Быстрые вопросы</p>
+                <div class="quick-prompts">
+                    <button class="quick-prompt-btn" onclick="sendQuick('Мне грустно, что посоветуешь?')">😔 Мне грустно...</button>
+                    <button class="quick-prompt-btn" onclick="sendQuick('Что посмотреть сегодня вечером?')">🎬 Что посмотреть?</button>
+                    <button class="quick-prompt-btn" onclick="sendQuick('Хочу куда-то съездить на выходных, бюджет 50 000 ₸')">✈️ Куда съездить?</button>
+                    <button class="quick-prompt-btn" onclick="sendQuick('Посоветуй активность для поднятия настроения')">💪 Поднять настроение</button>
+                    <button class="quick-prompt-btn" onclick="sendQuick('Проанализируй мои последние записи в дневнике')">📊 Анализ дневника</button>
+                    <button class="quick-prompt-btn" onclick="sendQuick('Что делать, когда нет сил и мотивации?')">🔋 Нет мотивации</button>
+                </div>
+            </div>
+
+            <div class="chat-sidebar-section">
+                <p class="sidebar-label">Ассистент знает о вас</p>
+                <div class="context-pills">
+                    {% if user_data.journal_entries|length > 0 %}
+                    <span class="context-pill">📔 {{ user_data.journal_entries|length }} записей в дневнике</span>
+                    {% endif %}
+                    {% if user_data.preferences.interests %}
+                    <span class="context-pill">🎯 Интересы настроены</span>
+                    {% endif %}
+                    {% if user_data.preferences.budget %}
+                    <span class="context-pill">💰 Бюджет указан</span>
+                    {% endif %}
+                    {% if not user_data.journal_entries and not user_data.preferences.interests %}
+                    <span class="context-pill context-pill-empty">Заполните профиль для лучших ответов</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <button class="btn-clear-chat" onclick="clearChat()">🗑 Очистить чат</button>
+        </aside>
+
+        <!-- Chat Window -->
+        <div class="chat-window">
+            <div class="chat-messages" id="chatMessages">
+                <!-- Приветствие -->
+                <div class="chat-message chat-message-bot" id="welcomeMsg">
+                    <div class="msg-avatar">🌿</div>
+                    <div class="msg-bubble">
+                        <p>Привет! Я ваш личный ИИ-ассистент SoulWay 👋</p>
+                        <p>Я знаю ваши записи из дневника и предпочтения, поэтому могу давать персонализированные советы. Спросите меня что угодно:</p>
+                        <ul style="margin:0.5rem 0 0 1rem; padding:0;">
+                            <li>«Мне грустно, что посоветуешь?»</li>
+                            <li>«Хочу куда-то съездить, бюджет 50к»</li>
+                            <li>«Что почитать этим вечером?»</li>
+                        </ul>
+                        <div class="msg-time">Сейчас</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="chat-input-wrap">
+                    <textarea
+                        id="chatInput"
+                        class="chat-input"
+                        placeholder="Напишите сообщение... (Enter — отправить, Shift+Enter — перенос)"
+                        rows="1"
+                    ></textarea>
+                    <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <div class="chat-input-hint">Enter — отправить · Shift+Enter — новая строка</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Chat Page Layout ── */
+.chat-page {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    height: calc(100vh - 140px);
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-layout {
+    display: grid;
+    grid-template-columns: 272px 1fr;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ── Sidebar — тёмная, контрастная, как hero-right ── */
+.chat-sidebar {
+    background: var(--ink);
+    border-radius: var(--r-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow-y: auto;
+    position: relative;
+}
+
+/* Декоративный глоу как на hero */
+.chat-sidebar::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(74,124,89,0.18) 0%, transparent 65%);
+    pointer-events: none;
+}
+
+.chat-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(245,240,232,0.1);
+    position: relative;
+}
+
+.chat-bot-avatar {
+    width: 46px;
+    height: 46px;
+    background: rgba(74,124,89,0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(74,124,89,0.4);
+}
+
+.chat-bot-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--cream);
+    font-family: 'Playfair Display', serif;
+    letter-spacing: -0.01em;
+}
+
+.chat-bot-status {
+    font-size: 0.75rem;
+    color: var(--sage-light);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.15rem;
+}
+
+.status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sage-light);
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.sidebar-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(245,240,232,0.35);
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+}
+
+.quick-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+/* Кнопки быстрых вопросов — как hero-feature-card */
+.quick-prompt-btn {
+    background: rgba(245,240,232,0.06);
+    border: 1px solid rgba(245,240,232,0.1);
+    border-radius: var(--r-md);
+    padding: 0.65rem 0.9rem;
+    text-align: left;
+    font-size: 0.82rem;
+    color: rgba(245,240,232,0.65);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    line-height: 1.4;
+}
+
+.quick-prompt-btn:hover {
+    background: rgba(74,124,89,0.2);
+    border-color: rgba(74,124,89,0.4);
+    color: var(--cream);
+    transform: translateX(3px);
+}
+
+.context-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.context-pill {
+    background: rgba(74,124,89,0.2);
+    color: var(--sage-light);
+    border: 1px solid rgba(74,124,89,0.35);
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--r-full);
+    font-size: 0.77rem;
+    font-weight: 500;
+}
+
+.context-pill-empty {
+    background: rgba(245,240,232,0.06);
+    color: rgba(245,240,232,0.35);
+    border-color: rgba(245,240,232,0.1);
+}
+
+.btn-clear-chat {
+    margin-top: auto;
+    background: none;
+    border: 1px solid rgba(245,240,232,0.12);
+    border-radius: var(--r-sm);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.78rem;
+    color: rgba(245,240,232,0.35);
+    cursor: pointer;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all 0.15s;
+    text-align: center;
+}
+
+.btn-clear-chat:hover {
+    border-color: #f87171;
+    color: #f87171;
+    background: rgba(248,113,113,0.08);
+}
+
+/* ── Chat Window — белый, чистый, контрастный ── */
+.chat-window {
+    background: var(--warm-white);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Тонкая полоска-акцент сверху */
+.chat-window::before {
+    content: '';
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg, var(--sage) 0%, var(--sage-light) 100%);
+    flex-shrink: 0;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    scroll-behavior: smooth;
+    background: var(--warm-white);
+}
+
+.chat-message {
+    display: flex;
+    gap: 0.875rem;
+    align-items: flex-start;
+    animation: msgIn 0.28s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chat-message-user { flex-direction: row-reverse; }
+
+/* Аватары */
+.msg-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: var(--sage-pale);
+    border: 1.5px solid rgba(74,124,89,0.2);
+}
+
+.chat-message-user .msg-avatar {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--cream);
+    font-size: 0.85rem;
+}
+
+/* Пузыри бота — светло-серые с отчётливой границей */
+.msg-bubble {
+    max-width: 68%;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+    padding: 0.9rem 1.15rem;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Пузыри пользователя — тёмный ink, как CTA кнопки сайта */
+.chat-message-user .msg-bubble {
+    background: var(--ink);
+    color: var(--cream);
+    border-color: var(--ink);
+    border-top-right-radius: 4px;
+    border-top-left-radius: 18px;
+    box-shadow: var(--shadow-md);
+}
+
+.chat-message-user .msg-bubble .msg-time {
+    color: rgba(245,240,232,0.45);
+}
+
+.msg-bubble p { margin: 0 0 0.5rem 0; }
+.msg-bubble p:last-of-type { margin-bottom: 0; }
+.msg-bubble ul { margin: 0.5rem 0 0 1.1rem; padding: 0; }
+.msg-bubble li { margin-bottom: 0.25rem; }
+
+.msg-time {
+    font-size: 0.68rem;
+    color: var(--faint);
+    margin-top: 0.5rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+
+/* Typing indicator */
+.typing-indicator .msg-bubble { padding: 0.8rem 1.1rem; }
+
+.typing-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    height: 18px;
+}
+
+.typing-dots span {
+    width: 7px; height: 7px;
+    background: var(--faint);
+    border-radius: 50%;
+    animation: typingBounce 1.3s ease infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.18s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Markdown formatting */
+.msg-bubble strong { font-weight: 700; color: var(--ink); }
+.chat-message-user .msg-bubble strong { color: var(--cream); }
+.msg-bubble em { font-style: italic; }
+.msg-bubble code {
+    background: rgba(28,25,23,0.07);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.84em;
+    font-family: monospace;
+}
+
+/* ── Input Area — чистая белая с sage-акцентом ── */
+.chat-input-area {
+    border-top: 1px solid var(--border-soft);
+    padding: 1rem 1.25rem 1.1rem;
+    background: var(--cream);
+    flex-shrink: 0;
+}
+
+.chat-input-wrap {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    background: var(--warm-white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 0.55rem 0.55rem 0.55rem 1.1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-input-wrap:focus-within {
+    border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(74,124,89,0.1);
+}
+
+.chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--ink);
+    resize: none;
+    max-height: 120px;
+    line-height: 1.55;
+    padding: 0.2rem 0;
+}
+
+.chat-input::placeholder { color: var(--faint); }
+
+/* Кнопка отправки — sage, как btn-sage на сайте */
+.chat-send-btn {
+    width: 38px; height: 38px;
+    border-radius: var(--r-md);
+    background: var(--sage);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+.chat-send-btn:hover {
+    background: var(--sage-deep);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74,124,89,0.3);
+}
+
+.chat-send-btn:active { transform: scale(0.93); }
+.chat-send-btn:disabled { background: var(--border); cursor: default; box-shadow: none; transform: none; }
+
+.chat-input-hint {
+    font-size: 0.7rem;
+    color: var(--faint);
+    margin-top: 0.45rem;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+/* ── Scrollbar styling ── */
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-sidebar::-webkit-scrollbar { width: 3px; }
+.chat-sidebar::-webkit-scrollbar-thumb { background: rgba(245,240,232,0.15); border-radius: 3px; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+    .chat-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    .chat-sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 1rem 1.25rem;
+        gap: 0.75rem;
+        min-height: auto;
+    }
+    .chat-sidebar::before { display: none; }
+    .chat-sidebar-header { display: none; }
+    .chat-page { height: auto; }
+    .chat-window { min-height: 65vh; }
+    .msg-bubble { max-width: 82%; }
+}
+
+@media (max-width: 480px) {
+    .msg-bubble { max-width: 90%; font-size: 0.875rem; }
+    .chat-messages { padding: 1.25rem 1rem; }
+}
+</style>
+
+<script>
+const userData = {{ user_data | tojson | safe }};
+let conversationHistory = [];
+let isTyping = false;
+
+function getTime() {
+    return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatBotText(text) {
+    // Простой markdown: **bold**, *italic*, и маркированные списки
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n- /g, '<br>• ')
+        .replace(/\n/g, '<br>');
+}
+
+function appendMessage(role, text) {
+    const messages = document.getElementById('chatMessages');
+    const isBot = role === 'bot';
+
+    const div = document.createElement('div');
+    div.className = `chat-message ${isBot ? 'chat-message-bot' : 'chat-message-user'}`;
+
+    const avatar = isBot ? '🌿' : '👤';
+    const bubbleContent = isBot
+        ? `<p>${formatBotText(text)}</p>`
+        : `<p>${text.replace(/\n/g, '<br>')}</p>`;
+
+    div.innerHTML = `
+        <div class="msg-avatar">${avatar}</div>
+        <div class="msg-bubble">
+            ${bubbleContent}
+            <div class="msg-time">${getTime()}</div>
+        </div>
+    `;
+
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+}
+
+function showTyping() {
+    const messages = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'chat-message chat-message-bot typing-indicator';
+    div.id = 'typingIndicator';
+    div.innerHTML = `
+        <div class="msg-avatar">🌿</div>
+        <div class="msg-bubble">
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function hideTyping() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+}
+
+async function sendMessage() {
+    if (isTyping) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    input.rows = 1;
+
+    appendMessage('user', text);
+    conversationHistory.push({ role: 'user', content: text });
+
+    isTyping = true;
+    document.getElementById('sendBtn').disabled = true;
+    showTyping();
+
+    try {
+        const res = await fetch('/chat/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, history: conversationHistory.slice(-10) })
+        });
+        const data = await res.json();
+        hideTyping();
+
+        if (data.reply) {
+            appendMessage('bot', data.reply);
+            conversationHistory.push({ role: 'assistant', content: data.reply });
+        } else {
+            appendMessage('bot', 'Произошла ошибка. Попробуйте ещё раз.');
+        }
+    } catch (e) {
+        hideTyping();
+        appendMessage('bot', '❌ Ошибка соединения. Проверьте интернет.');
+    }
+
+    isTyping = false;
+    document.getElementById('sendBtn').disabled = false;
+}
+
+function sendQuick(text) {
+    document.getElementById('chatInput').value = text;
+    sendMessage();
+}
+
+function clearChat() {
+    conversationHistory = [];
+    const messages = document.getElementById('chatMessages');
+    messages.innerHTML = '';
+    // Вернуть приветствие
+    const welcome = document.createElement('div');
+    welcome.className = 'chat-message chat-message-bot';
+    welcome.innerHTML = `
+        <div class="msg-avatar">🌿</div>
+        <div class="msg-bubble">
+            <p>Чат очищен. Чем могу помочь?</p>
+            <div class="msg-time">${getTime()}</div>
+        </div>
+    `;
+    messages.appendChild(welcome);
+}
+
+// Auto-resize textarea
+const chatInput = document.getElementById('chatInput');
+chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+chatInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+</script>
+{% endblock %}

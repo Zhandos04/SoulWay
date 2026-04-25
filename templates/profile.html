@@ -25,6 +25,32 @@
         </div>
     </div>
 
+    <!-- Mood Tracker -->
+    <div class="mood-tracker-section">
+        <div class="mood-tracker-header">
+            <div>
+                <h2>📈 Mood-трекер</h2>
+                <p style="color:var(--text-secondary); font-size:0.875rem; margin:0;">Динамика настроения за последние 30 дней</p>
+            </div>
+            <div class="mood-tracker-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#5046e4"></span>Настроение</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#c084fc; opacity:0.6;"></span>Среднее</span>
+            </div>
+        </div>
+
+        {% if user_data.journal_entries|length > 0 %}
+        <div class="mood-chart-wrap">
+            <canvas id="moodChart" height="110"></canvas>
+        </div>
+        <div class="mood-stats-row" id="moodStatsRow"></div>
+        {% else %}
+        <div class="empty-state">
+            <p style="font-size:1.5rem; margin-bottom:0.5rem;">📔</p>
+            <p>Начните вести <a href="/journal">дневник</a>, чтобы увидеть график настроения.</p>
+        </div>
+        {% endif %}
+    </div>
+
     <!-- Адрес -->
     <div class="address-section">
         <div class="address-header">
@@ -82,18 +108,8 @@
         <div class="analytics-section">
             <h2>История рекомендаций</h2>
             {% if user_data.history|length > 0 %}
-                <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1.25rem;">
-                    {% for item in user_data.history|reverse %}
-                    {% if loop.index <= 5 %}
-                    <div class="history-item">
-                        <div class="history-date">{{ item.timestamp }}</div>
-                        <div class="history-context">
-                            Запрос: {{ item.request.context if item.request.context else 'общие рекомендации' }}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
+                <p class="subtitle" style="margin-bottom:1.5rem;">Последние {{ [user_data.history|length, 5]|min }} из {{ user_data.history|length }} сессий</p>
+                <div id="historyList" style="display:flex; flex-direction:column; gap:1rem; margin-top:1.25rem;"></div>
             {% else %}
                 <div class="empty-state" style="margin-top:1rem;">
                     <p>История пуста. Получите свои первые <a href="/recommendations">рекомендации</a>!</p>
@@ -103,23 +119,215 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <style>
-.history-item {
-    background: var(--surface-2);
-    padding: 1rem 1.25rem;
-    border-radius: var(--radius-sm);
-    border-left: 3px solid var(--primary);
+/* ── Mood Tracker ── */
+.mood-tracker-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
 }
 
-.history-date {
-    color: var(--text-tertiary);
+.mood-tracker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.mood-tracker-header h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.4rem;
+    font-weight: 400;
+    margin-bottom: 0;
+}
+
+.mood-tracker-legend {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
     font-size: 0.8rem;
-    margin-bottom: 0.3rem;
+    color: var(--text-secondary);
 }
 
-.history-context {
-    color: var(--text);
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.mood-chart-wrap {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.mood-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.mood-stat-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    text-align: center;
+}
+
+.mood-stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+
+.mood-stat-value {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.8rem;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.mood-stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.2rem;
+}
+
+@media (max-width: 600px) {
+    .mood-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── History ── */
+.history-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.history-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.history-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 1.25rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.history-card-date {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+    font-family: monospace;
+}
+
+.history-card-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.history-badge {
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.history-badge-type {
+    background: var(--primary-pale);
+    color: var(--primary);
+    border: 1px solid #c7c2f8;
+}
+
+.history-badge-count {
+    background: var(--success-pale);
+    color: var(--success);
+    border: 1px solid #bbf7d0;
+}
+
+.history-card-body {
+    padding: 1rem 1.25rem;
+}
+
+.history-context-text {
     font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.history-recs-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.history-rec-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-rec-item:last-child {
+    border-bottom: none;
+}
+
+.history-rec-type-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.history-rec-title {
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+}
+
+.history-rec-why {
+    font-size: 0.76rem;
+    color: var(--text-tertiary);
+    flex: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Адрес */
@@ -370,6 +578,180 @@ if (entries && entries.length > 0) {
     document.getElementById('avgMood').textContent = avgMood.toFixed(1) + '/10';
 }
 
+// ── Mood Tracker Chart ──
+(function buildMoodChart() {
+    if (!entries || entries.length === 0) return;
+
+    // Берём последние 30 дней
+    const now = new Date();
+    const cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+    // Группируем по дате (берём среднее за день)
+    const dayMap = {};
+    entries.forEach(e => {
+        const d = e.date ? e.date.substring(0, 10) : null;
+        if (!d) return;
+        const dt = new Date(d);
+        if (dt < cutoff) return;
+        if (!dayMap[d]) dayMap[d] = [];
+        dayMap[d].push(e.mood);
+    });
+
+    const days = Object.keys(dayMap).sort();
+    if (days.length === 0) return;
+
+    const labels = days.map(d => {
+        const dt = new Date(d);
+        return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    });
+    const dataPoints = days.map(d => {
+        const arr = dayMap[d];
+        return +(arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1);
+    });
+
+    const avg = +(dataPoints.reduce((s, v) => s + v, 0) / dataPoints.length).toFixed(1);
+    const avgLine = dataPoints.map(() => avg);
+
+    // Цвета точек по значению
+    const pointColors = dataPoints.map(v => {
+        if (v >= 7) return '#16a34a';
+        if (v >= 5) return '#5046e4';
+        return '#dc2626';
+    });
+
+    const canvas = document.getElementById('moodChart');
+    if (!canvas) return;
+
+    // Определяем isDark
+    const isDark = document.documentElement.classList.contains('dark') ||
+        getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().startsWith('#1') ||
+        getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().startsWith('#0');
+
+    const gridColor = 'rgba(128,128,128,0.12)';
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#666';
+
+    const ctx = canvas.getContext('2d');
+
+    // Gradient fill
+    const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+    gradient.addColorStop(0, 'rgba(80,70,228,0.25)');
+    gradient.addColorStop(1, 'rgba(80,70,228,0)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Настроение',
+                    data: dataPoints,
+                    borderColor: '#5046e4',
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: pointColors,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: dataPoints.length <= 15 ? 5 : 3,
+                    pointHoverRadius: 7,
+                    fill: true,
+                    tension: 0.38,
+                },
+                {
+                    label: 'Среднее',
+                    data: avgLine,
+                    borderColor: 'rgba(192,132,252,0.55)',
+                    borderWidth: 1.5,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15,10,30,0.88)',
+                    titleColor: '#e2e0f8',
+                    bodyColor: '#c4c0f0',
+                    borderColor: 'rgba(80,70,228,0.3)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: ctx => ctx.datasetIndex === 0
+                            ? ` Настроение: ${ctx.parsed.y}/10`
+                            : ` Среднее: ${ctx.parsed.y}/10`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { size: 11 }, maxTicksLimit: 10 }
+                },
+                y: {
+                    min: 0, max: 10,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor, font: { size: 11 }, stepSize: 2,
+                        callback: v => v + '/10'
+                    }
+                }
+            }
+        }
+    });
+
+    // Stats row
+    const statsRow = document.getElementById('moodStatsRow');
+    if (!statsRow) return;
+
+    const maxMood = Math.max(...dataPoints);
+    const minMood = Math.min(...dataPoints);
+    const maxDay = labels[dataPoints.indexOf(maxMood)];
+    const minDay = labels[dataPoints.indexOf(minMood)];
+
+    // Лучший день недели
+    const weekdayMap = { 0: 'Вс', 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб' };
+    const wdSums = {}; const wdCounts = {};
+    days.forEach((d, i) => {
+        const wd = new Date(d).getDay();
+        wdSums[wd] = (wdSums[wd] || 0) + dataPoints[i];
+        wdCounts[wd] = (wdCounts[wd] || 0) + 1;
+    });
+    let bestWd = null, bestWdAvg = 0;
+    Object.keys(wdSums).forEach(wd => {
+        const a = wdSums[wd] / wdCounts[wd];
+        if (a > bestWdAvg) { bestWdAvg = a; bestWd = wd; }
+    });
+
+    statsRow.innerHTML = `
+        <div class="mood-stat-item">
+            <div class="mood-stat-label">Среднее</div>
+            <div class="mood-stat-value">${avg}</div>
+            <div class="mood-stat-sub">за 30 дней</div>
+        </div>
+        <div class="mood-stat-item">
+            <div class="mood-stat-label">Лучший день</div>
+            <div class="mood-stat-value" style="font-size:1.3rem; color:#16a34a;">😊 ${maxMood}</div>
+            <div class="mood-stat-sub">${maxDay}</div>
+        </div>
+        <div class="mood-stat-item">
+            <div class="mood-stat-label">Сложный день</div>
+            <div class="mood-stat-value" style="font-size:1.3rem; color:#dc2626;">😔 ${minMood}</div>
+            <div class="mood-stat-sub">${minDay}</div>
+        </div>
+        <div class="mood-stat-item">
+            <div class="mood-stat-label">Лучший день недели</div>
+            <div class="mood-stat-value" style="font-size:1.3rem;">${bestWd !== null ? weekdayMap[bestWd] : '—'}</div>
+            <div class="mood-stat-sub">${bestWd !== null ? bestWdAvg.toFixed(1) + ' avg' : ''}</div>
+        </div>
+    `;
+})();
+
 const analyzeBtn = document.getElementById('analyzeBtn');
 if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async function() {
@@ -578,6 +960,96 @@ async function saveAddress() {
     } else {
         showNotification('Ошибка при сохранении', 'error');
     }
+}
+
+// ── История рекомендаций ──
+const historyData = {{ user_data.history | tojson | safe }};
+
+function typeIcon(type) {
+    const icons = {
+        'кино': '🎬', 'фильм': '🎬', 'сериал': '📺',
+        'прогулка': '🚶', 'город': '🏙️', 'маршрут': '🗺️',
+        'путешествие': '✈️', 'travel': '✈️',
+        'фитнес': '💪', 'спорт': '⚽', 'йога': '🧘',
+        'книга': '📚', 'чтение': '📖',
+        'музыка': '🎵', 'концерт': '🎶',
+        'еда': '🍳', 'ресторан': '🍽️',
+        'природа': '🌿', 'парк': '🌳',
+    };
+    if (!type) return '✨';
+    const t = type.toLowerCase();
+    for (const [key, icon] of Object.entries(icons)) {
+        if (t.includes(key)) return icon;
+    }
+    return '✨';
+}
+
+function typeMap(type) {
+    const map = {
+        'any': 'Любой', 'home': 'Дома', 'city': 'Город',
+        'travel': 'Путешествие', 'fitness': 'Фитнес',
+    };
+    return map[type] || type || 'Разное';
+}
+
+function formatHistoryDate(ts) {
+    if (!ts) return '';
+    try {
+        const d = new Date(ts);
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return ts; }
+}
+
+const historyEl = document.getElementById('historyList');
+if (historyEl && historyData && historyData.length > 0) {
+    const last5 = [...historyData].reverse().slice(0, 5);
+    last5.forEach(item => {
+        let recs = [];
+        try {
+            const parsed = typeof item.response === 'string' ? JSON.parse(item.response) : item.response;
+            recs = parsed.recommendations || [];
+        } catch {}
+
+        const context = item.request?.context || '';
+        const reqType = item.request?.type || 'any';
+        const city = item.request?.city || '';
+
+        const contextLine = context && context !== 'общие рекомендации'
+            ? `<div class="history-context-text">💬 <span>"${context}"</span></div>`
+            : '';
+
+        const cityBadge = city ? `<span class="history-badge history-badge-type">📍 ${city}</span>` : '';
+
+        const recsHtml = recs.length > 0 ? `
+            <div class="history-recs-preview">
+                ${recs.slice(0, 4).map(r => `
+                    <div class="history-rec-item">
+                        <span class="history-rec-type-icon">${typeIcon(r.type)}</span>
+                        <span class="history-rec-title">${r.title || '—'}</span>
+                        <span class="history-rec-why">${r.why_now || r.benefit || ''}</span>
+                    </div>
+                `).join('')}
+                ${recs.length > 4 ? `<div style="font-size:0.75rem;color:var(--text-tertiary);padding-top:0.3rem;">+${recs.length - 4} ещё...</div>` : ''}
+            </div>
+        ` : `<div style="font-size:0.82rem;color:var(--text-tertiary);">Данные недоступны</div>`;
+
+        historyEl.innerHTML += `
+            <div class="history-card">
+                <div class="history-card-header">
+                    <span class="history-card-date">🕐 ${formatHistoryDate(item.timestamp)}</span>
+                    <div class="history-card-badges">
+                        <span class="history-badge history-badge-type">${typeMap(reqType)}</span>
+                        ${cityBadge}
+                        ${recs.length > 0 ? `<span class="history-badge history-badge-count">${recs.length} идей</span>` : ''}
+                    </div>
+                </div>
+                <div class="history-card-body">
+                    ${contextLine}
+                    ${recsHtml}
+                </div>
+            </div>
+        `;
+    });
 }
 
 document.getElementById('addressInput').addEventListener('keydown', function(e) {

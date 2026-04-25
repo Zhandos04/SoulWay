@@ -22,6 +22,7 @@
                 <li><a href="/journal">Дневник</a></li>
                 <li><a href="/preferences">Предпочтения</a></li>
                 <li><a href="/recommendations">Рекомендации</a></li>
+                <li><a href="/chat">💬 ИИ-чат</a></li>
                 <li><a href="/profile">Профиль</a></li>
                 {% if session.get('username') %}
                 <li><span class="nav-username">👤 {{ session.username }}</span></li>
@@ -44,7 +45,6 @@
     </footer>
 
     <script>
-    // Hamburger меню
     const navToggle = document.getElementById('navToggle');
     const navMenu = document.getElementById('navMenu');
     if (navToggle && navMenu) {
@@ -52,7 +52,6 @@
             this.classList.toggle('open');
             navMenu.classList.toggle('open');
         });
-        // Закрыть при клике на пункт
         navMenu.querySelectorAll('a').forEach(a => {
             a.addEventListener('click', () => {
                 navToggle.classList.remove('open');

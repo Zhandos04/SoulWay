@@ -4,12 +4,14 @@
 
 {% block content %}
 <div class="container preferences-page">
-    <h1>Мои предпочтения</h1>
-    <p class="subtitle">Расскажите о себе, чтобы получать лучшие рекомендации</p>
+    <div class="page-header">
+        <h1>Мои предпочтения</h1>
+        <p class="subtitle">Расскажите о себе, чтобы получать лучшие рекомендации</p>
+    </div>
 
     <form id="preferencesForm">
         <div class="form-section">
-            <h2>Интересы</h2>
+            <h2>🎭 Интересы</h2>
             <div class="checkbox-group">
                 <label><input type="checkbox" name="interests" value="кино"> 🎬 Кино</label>
                 <label><input type="checkbox" name="interests" value="книги"> 📚 Книги</label>
@@ -24,7 +26,7 @@
         </div>
 
         <div class="form-section">
-            <h2>Бюджет</h2>
+            <h2>💰 Бюджет</h2>
             <select name="budget" class="form-control">
                 <option value="low">Ограниченный (до 1 000 ₸)</option>
                 <option value="medium">Средний (1 000 – 5 000 ₸)</option>
@@ -33,7 +35,7 @@
         </div>
 
         <div class="form-section">
-            <h2>Уровень активности</h2>
+            <h2>⚡ Уровень активности</h2>
             <select name="activity_level" class="form-control">
                 <option value="low">Спокойный (домашний отдых)</option>
                 <option value="moderate">Умеренный (прогулки, мероприятия)</option>
@@ -42,7 +44,7 @@
         </div>
 
         <div class="form-section">
-            <h2>Социальные предпочтения</h2>
+            <h2>👥 Социальные предпочтения</h2>
             <select name="social_preference" class="form-control">
                 <option value="alone">Предпочитаю одиночество</option>
                 <option value="mixed">Смешанно</option>
@@ -51,18 +53,18 @@
         </div>
 
         <div class="form-section">
-            <h2>Любимые жанры</h2>
+            <h2>🎞 Любимые жанры</h2>
             <input type="text" name="favorite_genres" class="form-control"
                    placeholder="драма, научная фантастика, психология...">
         </div>
 
         <div class="form-section">
-            <h2>Что избегать</h2>
+            <h2>🚫 Что избегать</h2>
             <input type="text" name="avoid" class="form-control"
                    placeholder="ужасы, романтика, толпы...">
         </div>
 
-        <button type="submit" class="btn btn-primary btn-large">Сохранить предпочтения</button>
+        <button type="submit" class="btn btn-sage btn-large">Сохранить предпочтения</button>
     </form>
 </div>
 

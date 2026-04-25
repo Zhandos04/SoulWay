@@ -340,9 +340,9 @@ function getSelectedBudget() {
 
 function getSelectedCity() {
     const cityWrap = document.getElementById('cityFieldWrap');
-    if (cityWrap.style.display === 'none') return 'Алматы';
+    if (cityWrap.style.display === 'none') return null; // backend возьмёт из home_address
     const preset = document.getElementById('citySelect').value;
-    if (preset === 'custom') return document.getElementById('customCityInput').value.trim() || 'Алматы';
+    if (preset === 'custom') return document.getElementById('customCityInput').value.trim() || null;
     return preset;
 }
 
