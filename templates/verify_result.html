@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Верификация Email — SoulWay{% endblock %}
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card">
+        {% if success %}
+        <div class="verify-icon">🌿</div>
+        <h1>Email подтверждён!</h1>
+        <p class="subtitle">{{ message }}</p>
+        <a href="/" class="btn btn-primary btn-large btn-full">Перейти на главную</a>
+        {% else %}
+        <div class="verify-icon">❌</div>
+        <h1>Ошибка верификации</h1>
+        <p class="subtitle">{{ message }}</p>
+        <a href="/register" class="btn btn-outline btn-large btn-full" style="margin-bottom:1rem;">Зарегистрироваться заново</a>
+        <a href="/login" class="btn btn-primary btn-large btn-full">Войти</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

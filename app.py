@@ -3,7 +3,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from google import genai
 import os
-from datetime import datetime
 import json
 import re
 import psycopg2
@@ -12,9 +11,22 @@ from dotenv import load_dotenv
 from flasgger import Swagger
 import requests as http_requests
 
+import smtplib
+import secrets
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from datetime import datetime, timedelta
+
 load_dotenv()
 
 app = Flask(__name__)
+
+# Gmail SMTP конфигурация
+GMAIL_USER = os.getenv('GMAIL_USER', 'nurbekulyzhandos@gmail.com')
+GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', 'mxgo pywf zekg ntlu').replace(' ', '')
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:5000')
+print(f"[debug] GMAIL_USER={GMAIL_USER}")
+print(f"[debug] GMAIL_APP_PASSWORD={GMAIL_APP_PASSWORD}")
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-this-to-random-string')
 
 swagger_config = {
@@ -116,8 +128,37 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
             password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            is_verified BOOLEAN DEFAULT FALSE
+        )
+    ''')
+
+    # Добавляем колонку email и is_verified если их нет (миграция)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE")
+        cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE")
+    except Exception:
+        pass
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS email_verifications (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            token TEXT UNIQUE NOT NULL,
+            expires_at TEXT NOT NULL,
+            used BOOLEAN DEFAULT FALSE
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            token TEXT UNIQUE NOT NULL,
+            expires_at TEXT NOT NULL,
+            used BOOLEAN DEFAULT FALSE
         )
     ''')
 
@@ -159,6 +200,125 @@ def init_db():
 
 # Инициализируем БД при старте
 init_db()
+
+
+# ═══════════════════════════════════════
+# EMAIL HELPERS
+# ═══════════════════════════════════════
+
+def send_email(to_email: str, subject: str, html_body: str) -> bool:
+    """Отправить письмо через Gmail SMTP"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f'SoulWay 🌿 <{GMAIL_USER}>'
+        msg['To'] = to_email
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f'[email] Ошибка отправки: {e}')
+        return False
+
+
+def send_verification_email(user_id: int, email: str) -> bool:
+    """Создать токен верификации и отправить письмо"""
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now() + timedelta(hours=24)).isoformat()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    # Удаляем старые токены для этого пользователя
+    cursor.execute('DELETE FROM email_verifications WHERE user_id = %s', (user_id,))
+    cursor.execute(
+        'INSERT INTO email_verifications (user_id, token, expires_at) VALUES (%s, %s, %s)',
+        (user_id, token, expires)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    verify_url = f'{SITE_URL}/auth/verify-email/{token}'
+    html = f"""
+    <!DOCTYPE html><html><body style="font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#F5F0E8;margin:0;padding:40px 20px;">
+    <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(28,25,23,0.12);">
+        <div style="background:#4A7C59;padding:32px;text-align:center;">
+            <h1 style="color:#fff;font-size:1.8rem;margin:0;">🌿 SoulWay</h1>
+            <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Инструмент самопознания и баланса</p>
+        </div>
+        <div style="padding:40px 32px;">
+            <h2 style="color:#1C1917;font-size:1.3rem;margin:0 0 16px;">Подтвердите ваш email</h2>
+            <p style="color:#7A7268;line-height:1.7;margin:0 0 28px;">
+                Спасибо за регистрацию! Нажмите кнопку ниже, чтобы активировать аккаунт. Ссылка действует 24 часа.
+            </p>
+            <a href="{verify_url}" style="display:inline-block;background:#4A7C59;color:#fff;text-decoration:none;padding:14px 32px;border-radius:999px;font-weight:600;font-size:0.95rem;">
+                ✓ Подтвердить email
+            </a>
+            <p style="color:#A8A099;font-size:0.8rem;margin:24px 0 0;">
+                Если кнопка не работает, скопируйте ссылку:<br>
+                <a href="{verify_url}" style="color:#4A7C59;word-break:break-all;">{verify_url}</a>
+            </p>
+        </div>
+        <div style="background:#F5F0E8;padding:20px 32px;text-align:center;">
+            <p style="color:#A8A099;font-size:0.78rem;margin:0;">© 2026 SoulWay — если вы не регистрировались, проигнорируйте это письмо.</p>
+        </div>
+    </div>
+    </body></html>
+    """
+    return send_email(email, '🌿 SoulWay — Подтвердите ваш email', html)
+
+
+def send_reset_email(user_id: int, email: str) -> bool:
+    """Создать токен сброса пароля и отправить письмо"""
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now() + timedelta(hours=1)).isoformat()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    # Инвалидируем старые токены
+    cursor.execute('DELETE FROM password_resets WHERE user_id = %s', (user_id,))
+    cursor.execute(
+        'INSERT INTO password_resets (user_id, token, expires_at) VALUES (%s, %s, %s)',
+        (user_id, token, expires)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    reset_url = f'{SITE_URL}/auth/reset-password/{token}'
+    html = f"""
+    <!DOCTYPE html><html><body style="font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#F5F0E8;margin:0;padding:40px 20px;">
+    <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(28,25,23,0.12);">
+        <div style="background:#C4623A;padding:32px;text-align:center;">
+            <h1 style="color:#fff;font-size:1.8rem;margin:0;">🌿 SoulWay</h1>
+            <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Восстановление пароля</p>
+        </div>
+        <div style="padding:40px 32px;">
+            <h2 style="color:#1C1917;font-size:1.3rem;margin:0 0 16px;">Сбросить пароль</h2>
+            <p style="color:#7A7268;line-height:1.7;margin:0 0 8px;">
+                Вы запросили сброс пароля. Нажмите кнопку ниже — ссылка действует <strong>1 час</strong>.
+            </p>
+            <p style="color:#7A7268;line-height:1.7;margin:0 0 28px;">
+                Если это были не вы — просто проигнорируйте письмо, ваш пароль останется прежним.
+            </p>
+            <a href="{reset_url}" style="display:inline-block;background:#C4623A;color:#fff;text-decoration:none;padding:14px 32px;border-radius:999px;font-weight:600;font-size:0.95rem;">
+                🔑 Сбросить пароль
+            </a>
+            <p style="color:#A8A099;font-size:0.8rem;margin:24px 0 0;">
+                Если кнопка не работает:<br>
+                <a href="{reset_url}" style="color:#C4623A;word-break:break-all;">{reset_url}</a>
+            </p>
+        </div>
+        <div style="background:#F5F0E8;padding:20px 32px;text-align:center;">
+            <p style="color:#A8A099;font-size:0.78rem;margin:0;">© 2026 SoulWay</p>
+        </div>
+    </div>
+    </body></html>
+    """
+    return send_email(email, '🔑 SoulWay — Восстановление пароля', html)
 
 
 def login_required(f):
@@ -288,49 +448,128 @@ def register():
           type: object
           required:
             - username
+            - email
             - password
           properties:
             username:
               type: string
               example: john_doe
+            email:
+              type: string
+              example: john@example.com
             password:
               type: string
               example: secret123
     responses:
       200:
-        description: Успешная регистрация
+        description: Успешная регистрация, письмо отправлено
       400:
         description: Ошибка регистрации
     """
     data = request.json
     username = data.get('username', '').strip()
+    email = data.get('email', '').strip().lower()
     password = data.get('password', '')
 
-    if not username or not password:
+    if not username or not password or not email:
         return jsonify({'error': 'Заполните все поля'})
     if len(password) < 6:
         return jsonify({'error': 'Пароль минимум 6 символов'})
+    if '@' not in email or '.' not in email:
+        return jsonify({'error': 'Введите корректный email'})
 
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+    # Проверяем уникальность email
+    cursor.execute('SELECT id FROM users WHERE email = %s', (email,))
+    if cursor.fetchone():
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'Email уже используется'})
+
     try:
         cursor.execute(
-            'INSERT INTO users (username, password_hash, created_at) VALUES (%s, %s, %s) RETURNING id',
-            (username, generate_password_hash(password), datetime.now().isoformat())
+            'INSERT INTO users (username, email, password_hash, created_at, is_verified) VALUES (%s, %s, %s, %s, %s) RETURNING id',
+            (username, email, generate_password_hash(password), datetime.now().isoformat(), False)
         )
         user = cursor.fetchone()
         conn.commit()
-        session['username'] = username
-        session['user_id'] = user['id']
         cursor.close()
         conn.close()
-        return jsonify({'success': True})
+
+        # Отправляем письмо верификации
+        send_verification_email(user['id'], email)
+
+        return jsonify({'success': True, 'need_verify': True, 'email': email})
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
         cursor.close()
         conn.close()
         return jsonify({'error': 'Пользователь уже существует'})
+
+
+@app.route('/auth/verify-email/<token>')
+def verify_email(token):
+    """Подтверждение email по токену"""
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute(
+        'SELECT * FROM email_verifications WHERE token = %s AND used = FALSE',
+        (token,)
+    )
+    record = cursor.fetchone()
+
+    if not record:
+        cursor.close()
+        conn.close()
+        return render_template('verify_result.html', success=False, message='Ссылка недействительна или уже использована.')
+
+    if datetime.fromisoformat(record['expires_at']) < datetime.now():
+        cursor.close()
+        conn.close()
+        return render_template('verify_result.html', success=False, message='Ссылка устарела. Запросите новое письмо.')
+
+    # Помечаем токен как использованный и верифицируем пользователя
+    cursor.execute('UPDATE email_verifications SET used = TRUE WHERE id = %s', (record['id'],))
+    cursor.execute('UPDATE users SET is_verified = TRUE WHERE id = %s', (record['user_id'],))
+
+    # Получаем данные пользователя для автологина
+    cursor.execute('SELECT * FROM users WHERE id = %s', (record['user_id'],))
+    user = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    # Автоматически логиним пользователя
+    session['username'] = user['username']
+    session['user_id'] = user['id']
+
+    return render_template('verify_result.html', success=True, message='Email подтверждён! Добро пожаловать в SoulWay 🌿')
+
+
+@app.route('/auth/resend-verification', methods=['POST'])
+def resend_verification():
+    """Повторная отправка письма верификации"""
+    data = request.json
+    email = data.get('email', '').strip().lower()
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM users WHERE email = %s AND is_verified = FALSE', (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not user:
+        return jsonify({'error': 'Email не найден или уже подтверждён'})
+
+    sent = send_verification_email(user['id'], email)
+    if sent:
+        return jsonify({'success': True})
+    return jsonify({'error': 'Не удалось отправить письмо. Попробуйте позже.'})
+
 
 
 @app.route('/auth/login', methods=['POST'])
@@ -367,7 +606,8 @@ def login():
 
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+    # Ищем по username ИЛИ email
+    cursor.execute('SELECT * FROM users WHERE username = %s OR email = %s', (username, username.lower()))
     user = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -375,9 +615,92 @@ def login():
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({'error': 'Неверный логин или пароль'})
 
-    session['username'] = username
+    if not user.get('is_verified', True):
+        return jsonify({'error': 'email_not_verified', 'email': user.get('email', '')})
+
+    session['username'] = user['username']
     session['user_id'] = user['id']
     return jsonify({'success': True})
+
+
+@app.route('/forgot-password')
+def forgot_password_page():
+    """Страница запроса сброса пароля"""
+    return render_template('forgot_password.html')
+
+
+@app.route('/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """Запрос сброса пароля"""
+    data = request.json
+    email = data.get('email', '').strip().lower()
+
+    if not email:
+        return jsonify({'error': 'Введите email'})
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    # Всегда возвращаем успех (безопасность — не раскрываем наличие email)
+    if user:
+        send_reset_email(user['id'], email)
+
+    return jsonify({'success': True})
+
+
+@app.route('/auth/reset-password/<token>')
+def reset_password_page(token):
+    """Страница ввода нового пароля"""
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM password_resets WHERE token = %s AND used = FALSE', (token,))
+    record = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not record or datetime.fromisoformat(record['expires_at']) < datetime.now():
+        return render_template('reset_password.html', valid=False, token=token)
+    return render_template('reset_password.html', valid=True, token=token)
+
+
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Установить новый пароль по токену"""
+    data = request.json
+    token = data.get('token', '')
+    new_password = data.get('password', '')
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'Пароль минимум 6 символов'})
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM password_resets WHERE token = %s AND used = FALSE', (token,))
+    record = cursor.fetchone()
+
+    if not record:
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'Ссылка недействительна'})
+
+    if datetime.fromisoformat(record['expires_at']) < datetime.now():
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'Ссылка устарела. Запросите новый сброс.'})
+
+    cursor.execute('UPDATE users SET password_hash = %s WHERE id = %s',
+                   (generate_password_hash(new_password), record['user_id']))
+    cursor.execute('UPDATE password_resets SET used = TRUE WHERE id = %s', (record['id'],))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({'success': True})
+
 
 
 @app.route('/auth/logout')

@@ -1361,6 +1361,95 @@ select {
 
 .auth-switch a:hover { text-decoration: underline; }
 
+/* Password input wrapper */
+.password-wrap {
+    position: relative;
+}
+.password-wrap .form-control {
+    padding-right: 3rem;
+}
+.pw-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--muted);
+    padding: 4px;
+    line-height: 1;
+}
+
+/* Form hint */
+.form-hint {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--faint);
+    margin-top: 4px;
+}
+
+/* Forgot password link */
+.forgot-link {
+    color: var(--muted);
+    font-size: 0.83rem;
+    text-decoration: none;
+}
+.forgot-link:hover { color: var(--sage); text-decoration: underline; }
+
+/* Email not verified notice */
+.auth-verify-notice {
+    background: #fffbeb;
+    border: 1px solid #f6e05e;
+    color: #744210;
+    padding: 0.85rem 1rem;
+    border-radius: var(--r-md);
+    margin-bottom: 1.25rem;
+    font-size: 0.875rem;
+    text-align: left;
+}
+.auth-verify-notice a { color: var(--sage); font-weight: 600; }
+
+/* Verify steps */
+.verify-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1.25rem;
+    display: block;
+}
+
+.verify-steps {
+    background: var(--sage-pale);
+    border-radius: var(--r-lg);
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    text-align: left;
+}
+.vstep {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+}
+.vstep:not(:last-child) {
+    border-bottom: 1px solid var(--border-soft);
+}
+.vstep-num {
+    width: 26px;
+    height: 26px;
+    background: var(--sage);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
 /* ═══════════════════════════════════════
    PROFILE PAGE
 ═══════════════════════════════════════ */

@@ -8,29 +8,54 @@
         <p class="subtitle">Войдите в свой аккаунт</p>
 
         <div id="errorMsg" class="auth-error" style="display:none;"></div>
+        <div id="verifyMsg" class="auth-verify-notice" style="display:none;">
+            📬 Email не подтверждён. <a href="#" id="resendVerifyLink">Отправить письмо повторно</a>
+        </div>
 
         <div class="form-group">
-            <label>Имя пользователя</label>
-            <input type="text" id="username" class="form-control" placeholder="Введите логин">
+            <label>Логин или Email</label>
+            <input type="text" id="username" class="form-control" placeholder="Логин или email" autocomplete="username">
         </div>
-        <div class="form-group" style="margin-bottom:2rem;">
+        <div class="form-group">
             <label>Пароль</label>
-            <input type="password" id="password" class="form-control" placeholder="Введите пароль">
+            <div class="password-wrap">
+                <input type="password" id="password" class="form-control" placeholder="Введите пароль" autocomplete="current-password">
+                <button type="button" class="pw-toggle" onclick="togglePw()" tabindex="-1">👁</button>
+            </div>
+        </div>
+        <div style="text-align:right;margin-bottom:1.5rem;">
+            <a href="/forgot-password" class="forgot-link">Забыли пароль?</a>
         </div>
 
-        <button class="btn btn-primary btn-large btn-full" onclick="doLogin()">Войти</button>
+        <button class="btn btn-primary btn-large btn-full" id="loginBtn" onclick="doLogin()">Войти</button>
         <p class="auth-switch">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
     </div>
 </div>
 
 <script>
+let unverifiedEmail = '';
+
+function togglePw() {
+    const inp = document.getElementById('password');
+    const btn = document.querySelector('.pw-toggle');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') doLogin();
 });
 
 async function doLogin() {
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('errorMsg');
+    err.style.display = 'none';
+    document.getElementById('verifyMsg').style.display = 'none';
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Входим...';
 
     const res = await fetch('/auth/login', {
         method: 'POST',
@@ -41,11 +66,37 @@ async function doLogin() {
 
     if (data.success) {
         window.location.href = '/';
+    } else if (data.error === 'email_not_verified') {
+        unverifiedEmail = data.email;
+        document.getElementById('verifyMsg').style.display = 'block';
+        document.getElementById('resendVerifyLink').onclick = resendVerify;
+        btn.disabled = false;
+        btn.textContent = 'Войти';
     } else {
-        const err = document.getElementById('errorMsg');
         err.textContent = data.error;
         err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Войти';
     }
+}
+
+async function resendVerify(e) {
+    e.preventDefault();
+    const link = e.target;
+    link.textContent = 'Отправляем...';
+    link.style.pointerEvents = 'none';
+
+    const res = await fetch('/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: unverifiedEmail })
+    });
+    const data = await res.json();
+    link.textContent = data.success ? '✓ Письмо отправлено!' : data.error;
+    setTimeout(() => {
+        link.textContent = 'Отправить письмо повторно';
+        link.style.pointerEvents = '';
+    }, 20000);
 }
 </script>
 {% endblock %}
